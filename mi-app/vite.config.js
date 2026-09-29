@@ -14,9 +14,9 @@ export default defineConfig({
       includeAssets: ['favicon.ico', 'favicon.svg', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
         id: '/',
-        name: 'AcademiX - Organización Académica',
-        short_name: 'AcademiX',
-        description: 'App PWA local-first para gestión de materias, tareas, horarios y concentración.',
+        name: 'JAM',
+        short_name: 'JAM',
+        description: 'App PWA para gestión de estudios.',
         theme_color: '#4f46e5',
         background_color: '#0f172a',
         display: 'standalone',
