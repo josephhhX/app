@@ -2,31 +2,75 @@
 
 @layer base {
   body {
-    @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-200 antialiased selection:bg-indigo-500 selection:text-white;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    background-color: #f8faf8;
+    color: #1e2925;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .dark body {
+    background-color: #0e1816;
+    color: #e5ece9;
   }
 }
 
-/* Custom Scrollbar */
+/* Custom rounded shapes & clean pastel utilities */
+.jami-card {
+  background-color: #ffffff;
+  border: 1px solid #eef2ef;
+  border-radius: 1.35rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02), 0 4px 12px rgba(24, 74, 66, 0.03);
+}
+
+.dark .jami-card {
+  background-color: #14221f;
+  border-color: #1d332e;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+.jami-btn-primary {
+  background-color: #184a42;
+  color: #ffffff;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.jami-btn-primary:hover {
+  background-color: #133c35;
+}
+.jami-btn-primary:active {
+  transform: scale(0.98);
+}
+
+/* Custom Scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  @apply bg-slate-300 dark:bg-slate-700 rounded-full;
+  background: #cdd9d4;
+  border-radius: 9999px;
 }
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-slate-400 dark:bg-slate-600;
+.dark ::-webkit-scrollbar-thumb {
+  background: #253d37;
 }
 
-/* Animation utilities */
-@keyframes pulse-subtle {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+/* Animations */
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
-.animate-pulse-subtle {
-  animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+
+.animate-slide-up {
+  animation: slideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out forwards;
 }

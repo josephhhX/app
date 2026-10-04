@@ -1,21 +1,21 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
-  Timer as TimerIcon,
   Play,
   Pause,
   RotateCcw,
-  Bell,
-  BellOff,
-  Flame,
-  CheckCircle2,
-  Clock,
-  Award
+  BookOpen,
+  ChevronRight,
+  Settings,
+  X,
+  Check
 } from 'lucide-react';
-import { useTimer } from '../context/TimerContext';
 import { db } from '../db/db';
+import { useTimer } from '../context/TimerContext';
+import { useNavigate } from 'react-router-dom';
 
 export function Concentracion() {
+  const navigate = useNavigate();
   const {
     mode,
     setMode,
@@ -25,237 +25,235 @@ export function Concentracion() {
     completedPomodoros,
     selectedTaskId,
     setSelectedTaskId,
-    muteNotifications,
-    setMuteNotifications,
     startTimer,
     pauseTimer,
     resetTimer
   } = useTimer();
 
-  const tareas = useLiveQuery(() => db.tareas.where('estado').notEqual('hecha').toArray(), []);
-  const sesionesHistorial = useLiveQuery(() => db.sesionesConcentracion.reverse().limit(10).toArray(), []);
+  const materias = useLiveQuery(() => db.materias.toArray(), []);
+  const [selectedMateriaId, setSelectedMateriaId] = useState('');
+  const [objetivo, setObjetivo] = useState('');
+  const [showSubjectPicker, setShowSubjectPicker] = useState(false);
 
-  // Format time display MM:SS
-  const formatTime = (secs) => {
-    const mins = Math.floor(secs / 60);
-    const s = secs % 60;
-    return `${mins.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
+  const selectedMateria = (materias || []).find(m => m.id === Number(selectedMateriaId));
 
-  // Progress ring percentage calculation
-  const getProgressPct = () => {
-    if (mode === 'libre') return 100;
-    const totalSecs = mode === 'pomodoro' ? (isBreak ? 5 * 60 : 25 * 60) : (isBreak ? 17 * 60 : 52 * 60);
-    return Math.round(((totalSecs - timeLeft) / totalSecs) * 100);
-  };
+  // Format time MM:SS
+  const mins = Math.floor(timeLeft / 60);
+  const secs = timeLeft % 60;
+  const timeFormatted = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 
-  // Total minutes focused today
-  const todayStr = new Date().toISOString().split('T')[0];
-  const totalMinutesToday = (sesionesHistorial || [])
-    .filter(s => s.fecha && s.fecha.startsWith(todayStr))
-    .reduce((acc, s) => acc + (s.duracion || 0), 0);
+  // Progress percentage
+  const totalSeconds = mode === 'pomodoro' ? (isBreak ? 5 * 60 : 25 * 60) : mode === '52/17' ? (isBreak ? 17 * 60 : 52 * 60) : 60 * 60;
+  const progressPct = mode === 'libre' ? 100 : Math.min(100, Math.max(0, ((totalSeconds - timeLeft) / totalSeconds) * 100));
+
+  // Stroke offset for 280 circumference (radius 44)
+  const strokeDashoffset = 276.46 - (276.46 * progressPct) / 100;
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2.5">
-            <TimerIcon className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
-            <span>Modo Concentración</span>
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Técnicas Pomodoro y 52/17 para mantener el enfoque sin distracciones.
-          </p>
-        </div>
-
-        {/* Mute toggle button */}
+    <div className="space-y-6 animate-fade-in max-w-md mx-auto">
+      
+      {/* 1. HEADER (Mockup 4) */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-extrabold text-[#163a34] dark:text-[#e4eee9]">
+          Sesiones
+        </h1>
         <button
-          onClick={() => setMuteNotifications(!muteNotifications)}
-          className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 border transition ${
-            muteNotifications
-              ? 'bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300'
-              : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
-          }`}
+          onClick={() => navigate('/mas')}
+          className="p-2 rounded-xl bg-white dark:bg-[#14221f] border border-slate-200/80 dark:border-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+          title="Ajustes"
         >
-          {muteNotifications ? <BellOff className="w-4 h-4 text-amber-500" /> : <Bell className="w-4 h-4" />}
-          <span>{muteNotifications ? 'Notificaciones Silenciadas' : 'Notificaciones Activas'}</span>
+          <Settings className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Mode Selectors */}
-      <div className="grid grid-cols-3 gap-3 bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-2xl text-xs font-semibold">
+      {/* 2. MODE SELECTOR PILLS (Mockup 4) */}
+      <div className="flex items-center justify-center p-1 rounded-full bg-[#ebf2ee] dark:bg-[#142722] text-xs font-bold gap-1">
         <button
           onClick={() => setMode('pomodoro')}
-          className={`py-2.5 rounded-xl transition text-center ${
+          className={`flex-1 py-2 rounded-full transition text-center ${
             mode === 'pomodoro'
-              ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-md'
+              ? 'bg-[#184a42] text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
           }`}
         >
-          Pomodoro (25/5)
+          Pomodoro
         </button>
         <button
           onClick={() => setMode('52/17')}
-          className={`py-2.5 rounded-xl transition text-center ${
+          className={`flex-1 py-2 rounded-full transition text-center ${
             mode === '52/17'
-              ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-md'
+              ? 'bg-[#184a42] text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
           }`}
         >
-          Método 52/17
+          52/17
         </button>
         <button
           onClick={() => setMode('libre')}
-          className={`py-2.5 rounded-xl transition text-center ${
+          className={`flex-1 py-2 rounded-full transition text-center ${
             mode === 'libre'
-              ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-md'
+              ? 'bg-[#184a42] text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
           }`}
         >
-          Tiempo Libre
+          Libre
         </button>
       </div>
 
-      {/* Timer Digital Box */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-lg text-center space-y-6 relative overflow-hidden">
-        {/* Break state banner */}
-        {isBreak && (
-          <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 py-1.5 px-4 rounded-full text-xs font-bold inline-flex items-center gap-1.5 animate-pulse">
-            <span>☕ ¡Tiempo de descanso! Relájate un momento.</span>
-          </div>
-        )}
-
-        {/* Task Selection */}
-        <div className="max-w-md mx-auto">
-          <label className="block text-xs font-semibold text-slate-400 mb-1">
-            Vincular sesión a una tarea (opcional)
-          </label>
-          <select
-            value={selectedTaskId}
-            onChange={(e) => setSelectedTaskId(e.target.value)}
-            className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          >
-            <option value="">-- Trabajo General --</option>
-            {tareas?.map(t => (
-              <option key={t.id} value={t.id}>{t.texto}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Circular Display */}
-        <div className="relative w-64 h-64 mx-auto flex items-center justify-center">
+      {/* 3. CIRCULAR PROGRESS TIMER (Mockup 4) */}
+      <div className="jami-card p-8 flex flex-col items-center justify-center space-y-6">
+        <div className="relative w-64 h-64 flex items-center justify-center">
           <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+            {/* Background track */}
             <circle
-              cx="50" cy="50" r="42"
-              className="text-slate-100 dark:text-slate-800 stroke-current"
-              strokeWidth="6"
+              cx="50"
+              cy="50"
+              r="44"
+              className="stroke-[#dbece7] dark:stroke-[#1d3831]"
+              strokeWidth="4.5"
               fill="transparent"
             />
+            {/* Active progress */}
             <circle
-              cx="50" cy="50" r="42"
-              className={`${isBreak ? 'text-emerald-500' : 'text-indigo-600 dark:text-indigo-400'} stroke-current transition-all duration-1000`}
-              strokeWidth="6"
-              strokeDasharray="263.89"
-              strokeDashoffset={263.89 - (263.89 * getProgressPct()) / 100}
+              cx="50"
+              cy="50"
+              r="44"
+              className="stroke-[#184a42] dark:stroke-[#58b7a6] transition-all duration-1000"
+              strokeWidth="4.5"
+              strokeDasharray="276.46"
+              strokeDashoffset={strokeDashoffset}
               strokeLinecap="round"
               fill="transparent"
             />
           </svg>
 
+          {/* Time text in center */}
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-5xl sm:text-6xl font-black font-mono tracking-tight text-slate-900 dark:text-white">
-              {formatTime(timeLeft)}
+            <span className="text-5xl font-black tracking-tight text-slate-800 dark:text-slate-100">
+              {timeFormatted}
             </span>
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider mt-1">
-              {mode === 'libre' ? 'Cronómetro' : isBreak ? 'Descanso' : 'Enfoque Total'}
+            <span className="text-xs font-semibold text-slate-400 mt-1">
+              {isBreak ? 'Descanso' : 'Enfoque'}
             </span>
           </div>
         </div>
 
-        {/* Controls */}
-        <div className="flex items-center justify-center gap-4">
+        {/* Controls: Play & Reset */}
+        <div className="flex items-center gap-4">
           <button
-            onClick={resetTimer}
-            className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl hover:bg-slate-200 dark:hover:bg-slate-700 transition"
-            title="Reiniciar"
+            onClick={isRunning ? pauseTimer : startTimer}
+            className="w-14 h-14 rounded-full bg-[#184a42] hover:bg-[#133c35] text-white flex items-center justify-center shadow-lg shadow-[#184a42]/25 transition transform active:scale-95"
+            title={isRunning ? 'Pausar' : 'Iniciar'}
           >
-            <RotateCcw className="w-5 h-5" />
+            {isRunning ? (
+              <Pause className="w-6 h-6 fill-white" />
+            ) : (
+              <Play className="w-6 h-6 fill-white ml-0.5" />
+            )}
           </button>
 
-          {!isRunning ? (
-            <button
-              onClick={startTimer}
-              className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-base rounded-2xl shadow-lg shadow-indigo-500/30 transition transform active:scale-95 flex items-center gap-2"
-            >
-              <Play className="w-5 h-5 fill-white" />
-              <span>Iniciar</span>
-            </button>
-          ) : (
-            <button
-              onClick={pauseTimer}
-              className="px-8 py-4 bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-base rounded-2xl shadow-lg shadow-amber-500/30 transition transform active:scale-95 flex items-center gap-2"
-            >
-              <Pause className="w-5 h-5 fill-white" />
-              <span>Pausar</span>
-            </button>
-          )}
+          <button
+            onClick={resetTimer}
+            className="w-11 h-11 rounded-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#152320] text-slate-600 dark:text-slate-300 hover:bg-slate-50 flex items-center justify-center transition active:scale-95 shadow-xs"
+            title="Reiniciar"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* 4. SELECTION CARDS (Mockup 4) */}
+      <div className="space-y-3">
+        {/* Materia Card */}
+        <div
+          onClick={() => setShowSubjectPicker(true)}
+          className="jami-card p-4 flex items-center justify-between cursor-pointer hover:border-[#184a42]/30 transition group"
+        >
+          <div className="space-y-1">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              Materia
+            </span>
+            <div className="flex items-center gap-2.5">
+              <div
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs shadow-xs"
+                style={{ backgroundColor: selectedMateria?.color || '#1b7a4e' }}
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+              </div>
+              <span className="font-extrabold text-sm text-slate-800 dark:text-slate-100">
+                {selectedMateria?.nombre || 'Seleccionar materia'}
+              </span>
+            </div>
+          </div>
+
+          <ChevronRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition" />
         </div>
 
-        {/* Completed sessions indicators */}
-        {mode === 'pomodoro' && (
-          <div className="flex items-center justify-center gap-2 pt-2">
-            <span className="text-xs text-slate-400 font-medium">Sesiones completadas hoy:</span>
-            <div className="flex gap-1">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div
-                  key={i}
-                  className={`w-3.5 h-3.5 rounded-full border ${
-                    i < completedPomodoros
-                      ? 'bg-indigo-600 border-indigo-600 shadow-sm'
-                      : 'border-slate-300 dark:border-slate-700'
+        {/* Objetivo Card */}
+        <div className="jami-card p-4 space-y-1">
+          <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+            Objetivo (opcional)
+          </label>
+          <input
+            type="text"
+            value={objetivo}
+            onChange={(e) => setObjetivo(e.target.value)}
+            placeholder="ej. Ejercicios de derivadas"
+            className="w-full bg-transparent text-sm font-semibold text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none"
+          />
+        </div>
+      </div>
+
+      {/* 5. MOTIVATIONAL BANNER (Mockup 4 bottom) */}
+      <div className="text-center py-2 text-xs font-semibold text-[#184a42] dark:text-[#6ee7b7] flex items-center justify-center gap-1.5">
+        <span>🌱</span>
+        <span>Pequeños esfuerzos, grandes resultados</span>
+      </div>
+
+      {/* SUBJECT PICKER MODAL */}
+      {showSubjectPicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white dark:bg-[#14221f] rounded-3xl p-5 max-w-xs w-full space-y-3 border border-slate-100 dark:border-slate-800 shadow-xl">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="font-bold text-sm text-slate-800 dark:text-slate-100">
+                Elige una materia
+              </h3>
+              <button onClick={() => setShowSubjectPicker(false)} className="text-slate-400">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-1 max-h-56 overflow-y-auto">
+              <button
+                onClick={() => { setSelectedMateriaId(''); setShowSubjectPicker(false); }}
+                className={`w-full text-left p-2.5 rounded-xl text-xs font-semibold flex items-center justify-between transition ${
+                  !selectedMateriaId ? 'bg-[#ebf8f2] text-[#1b7a4e]' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
+                }`}
+              >
+                <span>General / Ninguna</span>
+                {!selectedMateriaId && <Check className="w-3.5 h-3.5" />}
+              </button>
+
+              {(materias || []).map(m => (
+                <button
+                  key={m.id}
+                  onClick={() => { setSelectedMateriaId(m.id); setShowSubjectPicker(false); }}
+                  className={`w-full text-left p-2.5 rounded-xl text-xs font-semibold flex items-center justify-between transition ${
+                    selectedMateriaId === m.id ? 'bg-[#ebf8f2] text-[#1b7a4e]' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
                   }`}
-                />
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: m.color || '#184a42' }} />
+                    <span>{m.nombre}</span>
+                  </div>
+                  {selectedMateriaId === m.id && <Check className="w-3.5 h-3.5" />}
+                </button>
               ))}
             </div>
-            <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
-              ({completedPomodoros})
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Stats Summary & History */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-sm">
-          <div className="flex items-center justify-between text-xs font-semibold text-slate-400 mb-2">
-            <span>Tiempo Enfocado Hoy</span>
-            <Clock className="w-4 h-4 text-indigo-500" />
-          </div>
-          <div className="text-3xl font-black text-slate-900 dark:text-white">
-            {totalMinutesToday} <span className="text-sm font-medium text-slate-500">minutos</span>
           </div>
         </div>
+      )}
 
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-sm">
-          <div className="flex items-center justify-between text-xs font-semibold text-slate-400 mb-2">
-            <span>Historial Reciente</span>
-            <Award className="w-4 h-4 text-emerald-500" />
-          </div>
-          <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1 text-xs">
-            {(!sesionesHistorial || sesionesHistorial.length === 0) ? (
-              <span className="text-slate-400 text-xs italic">Aún no hay sesiones registradas hoy.</span>
-            ) : (
-              sesionesHistorial.map(s => (
-                <div key={s.id} className="flex items-center justify-between text-slate-700 dark:text-slate-300">
-                  <span className="capitalize font-medium">Modo {s.tipo} ({s.duracion}m)</span>
-                  <span className="text-slate-400">{new Date(s.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

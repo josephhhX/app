@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Settings,
   Moon,
@@ -7,15 +7,15 @@ import {
   Bell,
   Download,
   Upload,
-  RefreshCw,
   Trash2,
   AlertTriangle,
   CheckCircle2,
-  HardDrive
+  HardDrive,
+  User
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useNotification } from '../context/NotificationContext';
-import { db, initSeedData } from '../db/db';
+import { db } from '../db/db';
 
 export function Ajustes() {
   const { theme, setTheme } = useTheme();
@@ -23,7 +23,21 @@ export function Ajustes() {
 
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [profileName, setProfileName] = useState('');
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    db.configuracion.get('userName').then((item) => setProfileName(item?.value || ''));
+  }, []);
+
+  const saveProfile = async (event) => {
+    event.preventDefault();
+    const name = profileName.trim();
+    if (!name) return;
+    await db.configuracion.put({ key: 'userName', value: name });
+    setMessage('Perfil actualizado.');
+    setError('');
+  };
 
   // Export JSON Backup
   const exportBackup = async () => {
@@ -102,15 +116,6 @@ export function Ajustes() {
     reader.readAsText(file);
   };
 
-  // Re-seed Initial Demo Data
-  const reseedData = async () => {
-    if (window.confirm('¿Cargar datos de prueba iniciales? No borrará tus materias si ya tienes datos, pero poblará registros vacíos.')) {
-      await initSeedData();
-      setMessage('¡Datos de prueba cargados!');
-      setTimeout(() => window.location.reload(), 1000);
-    }
-  };
-
   // Completely Wipe Data
   const wipeAllData = async () => {
     if (window.confirm('⚠️ ¿ATENCIÓN: Estás seguro de borrar TODOS los datos de la aplicación? Esta acción es irreversible.')) {
@@ -147,6 +152,17 @@ export function Ajustes() {
           <span>{error}</span>
         </div>
       )}
+
+      {/* PERFIL */}
+      <form onSubmit={saveProfile} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-4">
+        <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2"><User className="w-5 h-5 text-[#184a42]" /><span>Perfil</span></h2>
+        <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+          <label className="block flex-1 text-xs font-semibold text-slate-600 dark:text-slate-300">Nombre
+            <input required maxLength="40" value={profileName} onChange={(event) => setProfileName(event.target.value)} className="mt-1.5 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#184a42]/20" />
+          </label>
+          <button type="submit" className="px-4 py-2.5 bg-[#184a42] hover:bg-[#133c35] text-white rounded-xl font-bold text-xs transition">Guardar perfil</button>
+        </div>
+      </form>
 
       {/* SECTION 1: APARIENCIA */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-4">
@@ -293,14 +309,6 @@ export function Ajustes() {
         </div>
 
         <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap gap-3 justify-between items-center text-xs">
-          <button
-            onClick={reseedData}
-            className="text-slate-600 dark:text-slate-400 hover:text-indigo-600 font-medium flex items-center gap-1.5"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Re-cargar datos de prueba</span>
-          </button>
-
           <button
             onClick={wipeAllData}
             className="text-red-500 hover:text-red-700 font-semibold flex items-center gap-1.5"

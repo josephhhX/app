@@ -101,7 +101,7 @@ export function Estadisticas() {
 
         <button
           onClick={() => openAddModal()}
-          className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/20 transition flex items-center justify-center gap-2 text-sm shrink-0"
+          className="px-4 py-2.5 bg-[#184a42] hover:bg-[#133c35] text-white font-semibold rounded-xl shadow-lg shadow-[#184a42]/20 transition flex items-center justify-center gap-2 text-sm shrink-0"
         >
           <Plus className="w-4 h-4" />
           <span>Registrar Nota</span>

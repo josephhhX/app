@@ -1,4 +1,42 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <rect width="512" height="512" fill="#4f46e5" rx="100"/>
-  <text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-weight="900" font-size="280" fill="#ffffff">A</text>
+  <defs>
+    <linearGradient id="jamiTeal" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1b4942" />
+      <stop offset="100%" stop-color="#143d36" />
+    </linearGradient>
+  </defs>
+  <!-- Background Squircle -->
+  <rect width="512" height="512" rx="140" fill="url(#jamiTeal)"/>
+  
+  <!-- Cat Silhouette -->
+  <g fill="#ffffff">
+    <!-- Left Ear -->
+    <path d="M145 230 L165 115 C170 102 188 108 205 130 L238 185 Z" />
+    <!-- Right Ear -->
+    <path d="M367 230 L347 115 C342 102 324 108 307 130 L274 185 Z" />
+    <!-- Head Base -->
+    <ellipse cx="256" cy="290" rx="150" ry="120" />
+  </g>
+  
+  <!-- Inner Ear Subtle Accents -->
+  <path d="M172 205 L180 145 L215 195 Z" fill="#1b4942" opacity="0.25" />
+  <path d="M340 205 L332 145 L297 195 Z" fill="#1b4942" opacity="0.25" />
+
+  <!-- Eyes -->
+  <ellipse cx="205" cy="275" rx="13" ry="17" fill="#1b4942" />
+  <ellipse cx="307" cy="275" rx="13" ry="17" fill="#1b4942" />
+  <circle cx="209" cy="271" r="5" fill="#ffffff" />
+  <circle cx="311" cy="271" r="5" fill="#ffffff" />
+  
+  <!-- Cute Nose -->
+  <polygon points="256,298 248,309 264,309" fill="#1b4942" />
+  
+  <!-- Mouth -->
+  <path d="M246 314 Q256 322 266 314" stroke="#1b4942" stroke-width="4.5" stroke-linecap="round" fill="none" />
+  
+  <!-- Whiskers -->
+  <path d="M165 292 Q130 286 112 284" stroke="#1b4942" stroke-width="4.5" stroke-linecap="round" fill="none" opacity="0.75" />
+  <path d="M165 308 Q130 309 110 312" stroke="#1b4942" stroke-width="4.5" stroke-linecap="round" fill="none" opacity="0.75" />
+  <path d="M347 292 Q382 286 400 284" stroke="#1b4942" stroke-width="4.5" stroke-linecap="round" fill="none" opacity="0.75" />
+  <path d="M347 308 Q382 309 402 312" stroke="#1b4942" stroke-width="4.5" stroke-linecap="round" fill="none" opacity="0.75" />
 </svg>

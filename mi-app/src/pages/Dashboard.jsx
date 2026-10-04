@@ -1,466 +1,448 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
-  Clock,
-  CheckCircle2,
-  AlertCircle,
-  Calendar,
+  Bell,
   Zap,
-  Flame,
-  Plus,
   BookOpen,
-  ArrowRight,
+  CheckCircle2,
+  Calendar,
   ChevronRight,
-  Trash2,
-  ExternalLink,
-  Award
+  Target,
+  Clock,
+  Sparkles,
+  Award,
+  ArrowRight,
+  Search,
+  Folder,
+  BarChart2,
+  GraduationCap,
+  FileText
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { db } from '../db/db';
-import { useStreak } from '../context/StreakContext';
-import { BatteryOptimizationBanner } from '../components/BatteryOptimizationBanner';
+import { JamiLogo } from '../components/JamiLogo';
+import { AddActionModal } from '../components/AddActionModal';
+import { GlobalSearchModal } from '../components/GlobalSearchModal';
 
 export function Dashboard() {
   const navigate = useNavigate();
-  const { streak, triggerStreakCheck } = useStreak();
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   const materias = useLiveQuery(() => db.materias.toArray(), []);
   const tareas = useLiveQuery(() => db.tareas.toArray(), []);
   const examenes = useLiveQuery(() => db.examenes.toArray(), []);
-  const notas = useLiveQuery(() => db.notasRapidas.toArray(), []);
+  const eventos = useLiveQuery(() => db.eventos.toArray(), []);
+  const sesiones = useLiveQuery(() => db.sesionesConcentracion.toArray(), []);
 
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const userConfig = useLiveQuery(async () => {
+    const name = await db.configuracion.get('userName');
+    return {
+      name: name?.value || 'tú'
+    };
+  }, []);
 
-  // Update current time every second for class countdown
+  const [now, setNow] = useState(new Date());
+
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    const timer = setInterval(() => setNow(new Date()), 30000);
     return () => clearInterval(timer);
   }, []);
 
-  // Compute Next / Current Class
-  const currentDayName = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][currentTime.getDay()];
-  const currentMinutes = currentTime.getHours() * 60 + currentTime.getMinutes() + currentTime.getSeconds() / 60;
+  // Format date: "sábado, 4 de octubre"
+  const formattedDate = now.toLocaleDateString('es-ES', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long'
+  });
 
-  let activeOrNextClass = null;
+  // Dynamic greeting: Buenos días / Buenas tardes / Buenas noches
+  const hour = now.getHours();
+  let greeting = 'Buenos días';
+  let greetingIcon = '☀️';
+  if (hour >= 12 && hour < 19) {
+    greeting = 'Buenas tardes';
+    greetingIcon = '🌤️';
+  } else if (hour >= 19 || hour < 6) {
+    greeting = 'Buenas noches';
+    greetingIcon = '🌙';
+  }
 
-  if (materias) {
-    const todayClasses = [];
-    materias.forEach(m => {
-      if (m.horarios) {
-        m.horarios.forEach(h => {
-          if (h.diaSemana === currentDayName) {
-            const [startH, startM] = h.horaInicio.split(':').map(Number);
-            const [endH, endM] = h.horaFin.split(':').map(Number);
-            const startMins = startH * 60 + startM;
-            const endMins = endH * 60 + endM;
+  const pendingTasks = (tareas || []).filter(t => t.estado !== 'hecha');
+  const upcomingExams = examenes || [];
 
-            todayClasses.push({
-              materia: m,
-              horaInicio: h.horaInicio,
-              horaFin: h.horaFin,
-              startMins,
-              endMins
-            });
-          }
+  // Find Highlighted Task (Mockup 1: "Tarea destacada")
+  const featuredTask = pendingTasks.find(t => t.esDestacada || t.prioridad === 'urgente') || pendingTasks[0];
+  const featuredMateria = featuredTask ? (materias || []).find(m => m.id === featuredTask.materiaId) : null;
+
+  // Calculate total focus time this week
+  const totalFocusMinutes = (sesiones || []).reduce((acc, s) => acc + (Number(s.duracion) || 0), 0);
+  const focusHours = Math.floor(totalFocusMinutes / 60);
+  const focusRemainingMins = totalFocusMinutes % 60;
+
+  // Upcoming Events list (combining manual eventos and today's classes)
+  const currentDayName = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][now.getDay()];
+  const todayClasses = [];
+  (materias || []).forEach(m => {
+    (m.horarios || []).forEach(h => {
+      if (h.diaSemana === currentDayName) {
+        todayClasses.push({
+          id: `class-${m.id}-${h.horaInicio}`,
+          titulo: m.nombre,
+          lugar: m.aula || 'Aula virtual',
+          horaInicio: h.horaInicio,
+          tipo: 'clase',
+          materiaColor: m.color
         });
       }
     });
+  });
 
-    todayClasses.sort((a, b) => a.startMins - b.startMins);
-
-    // Find currently active class or next upcoming class today
-    const currentClass = todayClasses.find(c => currentMinutes >= c.startMins && currentMinutes < c.endMins);
-    if (currentClass) {
-      activeOrNextClass = { ...currentClass, isCurrent: true };
-    } else {
-      const nextClass = todayClasses.find(c => c.startMins > currentMinutes);
-      if (nextClass) {
-        activeOrNextClass = { ...nextClass, isCurrent: false };
-      }
-    }
-  }
-
-  // Format countdown string for next class
-  const getCountdownString = (item) => {
-    if (!item) return '';
-    if (item.isCurrent) {
-      const endSecs = item.endMins * 60;
-      const curSecs = currentTime.getHours() * 3600 + currentTime.getMinutes() * 60 + currentTime.getSeconds();
-      const diffSecs = Math.max(0, Math.floor(endSecs - curSecs));
-      const mins = Math.floor(diffSecs / 60);
-      const secs = diffSecs % 60;
-      return `Finaliza en ${mins}m ${secs}s`;
-    } else {
-      const startSecs = item.startMins * 60;
-      const curSecs = currentTime.getHours() * 3600 + currentTime.getMinutes() * 60 + currentTime.getSeconds();
-      const diffSecs = Math.max(0, Math.floor(startSecs - curSecs));
-      const hours = Math.floor(diffSecs / 3600);
-      const mins = Math.floor((diffSecs % 3600) / 60);
-      const secs = diffSecs % 60;
-      if (hours > 0) return `Empieza en ${hours}h ${mins}m`;
-      return `Empieza en ${mins}m ${secs}s`;
-    }
-  };
-
-  // Stats calculation
-  const todayStr = new Date().toISOString().split('T')[0];
-  const pendingTasks = tareas ? tareas.filter(t => t.estado !== 'hecha') : [];
-  const overdueTasks = pendingTasks.filter(t => t.fechaLimite && t.fechaLimite < todayStr);
-  const dueTodayTasks = pendingTasks.filter(t => t.fechaLimite && t.fechaLimite === todayStr);
-
-  const toggleTaskStatus = async (task) => {
-    const nextStatus = task.estado === 'hecha' ? 'pendiente' : 'hecha';
-    await db.tareas.update(task.id, { estado: nextStatus });
-    if (nextStatus === 'hecha') {
-      triggerStreakCheck();
-    }
-  };
-
-  const deleteNota = async (id) => {
-    await db.notasRapidas.delete(id);
-  };
+  const allUpcomingEvents = [
+    ...(eventos || []).map(e => ({ ...e, id: `evt-${e.id}` })),
+    ...todayClasses
+  ].sort((a, b) => (a.horaInicio || '00:00').localeCompare(b.horaInicio || '00:00'));
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Android Battery Optimization Advice */}
-      <BatteryOptimizationBanner />
+    <div className="space-y-6 animate-fade-in max-w-2xl mx-auto md:max-w-4xl">
+      
+      {/* 1. TOP BAR (Mobile visible header) */}
+      <div className="flex items-center justify-between pt-1">
+        <JamiLogo className="w-8 h-8" textSize="text-2xl" />
 
-      {/* Greeting Banner */}
-      <div className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-indigo-800 rounded-3xl p-6 sm:p-8 text-white shadow-xl shadow-indigo-500/10 relative overflow-hidden">
-        <div className="absolute right-0 top-0 bottom-0 w-1/3 opacity-10 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent pointer-events-none" />
-        <div className="relative z-10 max-w-2xl">
-          <div className="flex items-center gap-2 text-indigo-200 text-xs sm:text-sm font-semibold mb-1 capitalize">
-            <Calendar className="w-4 h-4" />
-            <span>
-              {currentTime.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-            </span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsSearchOpen(true)}
+            className="w-10 h-10 rounded-full bg-white dark:bg-[#14221f] border border-slate-200/80 dark:border-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#1c302c] transition shadow-2xs"
+            title="Buscar en Jami (Ctrl+K)"
+          >
+            <Search className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() => navigate('/horario')}
+            className="w-10 h-10 rounded-full bg-white dark:bg-[#14221f] border border-slate-200/80 dark:border-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#1c302c] transition shadow-2xs relative"
+            title="Avisos"
+          >
+            <Bell className="w-4 h-4" />
+            <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-red-500" />
+          </button>
+
+          <button
+            onClick={() => navigate('/ajustes')}
+            className="w-10 h-10 rounded-full bg-[#184a42] text-white font-bold text-sm flex items-center justify-center shadow-xs hover:opacity-95 transition"
+            title="Perfil y ajustes"
+          >
+            {userConfig?.name ? userConfig.name.charAt(0).toUpperCase() : 'L'}
+          </button>
+        </div>
+      </div>
+
+      {/* 2. GREETING & DATE */}
+      <div className="space-y-0.5">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-[#163a34] dark:text-[#e4eee9] tracking-tight">
+          {greeting}, {userConfig?.name || 'tú'} {greetingIcon}
+        </h1>
+        <p className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400 capitalize">
+          Hoy es {formattedDate}
+        </p>
+      </div>
+
+      {/* 3. QUICK NOTE CALLOUT BANNER (Mockup 1) */}
+      <div
+        onClick={() => setIsAddOpen(true)}
+        className="jami-card p-4 flex items-center justify-between gap-3 cursor-pointer hover:border-[#184a42]/30 transition group"
+      >
+        <div className="flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-[#f4ecfb] dark:bg-[#281838] flex items-center justify-center text-[#7a35b8] dark:text-[#d8b4fe] shrink-0">
+            <Zap className="w-5 h-5 fill-current" />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-            ¡Hola de nuevo! 🎓
-          </h1>
-          <p className="mt-1 text-indigo-100 text-sm sm:text-base">
-            Aquí tienes el resumen de tu jornada académica. Mantén la concentración y el ritmo.
-          </p>
+          <div>
+            <div className="text-xs sm:text-sm font-extrabold text-slate-800 dark:text-slate-100 group-hover:text-[#184a42] dark:group-hover:text-[#6ee7b7] transition">
+              ¿Necesitas anotar algo?
+            </div>
+            <div className="text-[11px] sm:text-xs text-slate-400 dark:text-slate-400">
+              Toca el + para una nota rápida
+            </div>
+          </div>
+        </div>
 
-          {/* Next Class Countdown Highlight Card */}
-          {activeOrNextClass ? (
-            <div className="mt-5 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
+        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition" />
+      </div>
+
+      {/* 4. THREE SUMMARY CHIPS (Mockup 1) */}
+      <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
+        {/* Tareas */}
+        <div
+          onClick={() => navigate('/tareas?tab=lista')}
+          className="p-3.5 sm:p-4 rounded-2xl bg-[#ebf8f2] dark:bg-[#122720] border border-[#d2efe2] dark:border-[#1b3d33] flex flex-col justify-between cursor-pointer hover:scale-[1.01] transition"
+        >
+          <div className="flex items-center gap-2 text-[#1b7a4e] dark:text-[#6ee7b7]">
+            <BookOpen className="w-4 h-4" />
+            <span className="text-lg sm:text-xl font-black">{pendingTasks.length}</span>
+          </div>
+          <span className="text-[11px] sm:text-xs font-semibold text-[#145a3a] dark:text-[#a7f3d0] mt-1">
+            Tareas
+          </span>
+        </div>
+
+        {/* Clases */}
+        <div
+          onClick={() => navigate('/horario')}
+          className="p-3.5 sm:p-4 rounded-2xl bg-[#f4ecfb] dark:bg-[#251733] border border-[#e7d5f8] dark:border-[#3d2454] flex flex-col justify-between cursor-pointer hover:scale-[1.01] transition"
+        >
+          <div className="flex items-center gap-2 text-[#7a35b8] dark:text-[#d8b4fe]">
+            <CheckCircle2 className="w-4 h-4" />
+            <span className="text-lg sm:text-xl font-black">{todayClasses.length}</span>
+          </div>
+          <span className="text-[11px] sm:text-xs font-semibold text-[#582188] dark:text-[#e9d5ff] mt-1">
+            Clases hoy
+          </span>
+        </div>
+
+        {/* Examen */}
+        <div
+          onClick={() => navigate('/tareas?tab=examenes')}
+          className="p-3.5 sm:p-4 rounded-2xl bg-[#fdf2ea] dark:bg-[#2d1c16] border border-[#fcdcc8] dark:border-[#48281d] flex flex-col justify-between cursor-pointer hover:scale-[1.01] transition"
+        >
+          <div className="flex items-center gap-2 text-[#c8561d] dark:text-[#fdba74]">
+            <Calendar className="w-4 h-4" />
+            <span className="text-lg sm:text-xl font-black">{upcomingExams.length}</span>
+          </div>
+          <span className="text-[11px] sm:text-xs font-semibold text-[#8c350d] dark:text-[#fed7aa] mt-1">
+            Exámenes
+          </span>
+        </div>
+      </div>
+
+      {/* QUICK ACCESS MODULES (Materias, Exámenes, Calificaciones, Documentos, Notas) */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+            Módulos rápidos
+          </span>
+          <button
+            onClick={() => navigate('/mas')}
+            className="text-[11px] font-bold text-[#184a42] dark:text-[#6ee7b7] hover:underline"
+          >
+            Ver más &gt;
+          </button>
+        </div>
+
+        <div className="grid grid-cols-5 gap-2 sm:gap-3">
+          <button
+            onClick={() => navigate('/materias')}
+            className="p-2.5 sm:p-3 rounded-2xl bg-white dark:bg-[#14221f] border border-slate-200/80 dark:border-slate-800/80 flex flex-col items-center justify-center gap-1.5 hover:border-[#184a42]/40 hover:bg-[#ebf8f2]/40 dark:hover:bg-[#182b26] transition group shadow-2xs"
+            title="Materias"
+          >
+            <div className="w-9 h-9 rounded-xl bg-[#ebf8f2] dark:bg-[#1b342e] text-[#184a42] dark:text-[#6ee7b7] flex items-center justify-center transition group-hover:scale-105">
+              <BookOpen className="w-4 h-4" />
+            </div>
+            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200 group-hover:text-[#184a42] dark:group-hover:text-[#6ee7b7] truncate w-full text-center">
+              Materias
+            </span>
+          </button>
+
+          <button
+            onClick={() => navigate('/tareas?tab=examenes')}
+            className="p-2.5 sm:p-3 rounded-2xl bg-white dark:bg-[#14221f] border border-slate-200/80 dark:border-slate-800/80 flex flex-col items-center justify-center gap-1.5 hover:border-[#c8561d]/40 hover:bg-[#fdf2ea]/40 dark:hover:bg-[#2d1c16] transition group shadow-2xs"
+            title="Exámenes"
+          >
+            <div className="w-9 h-9 rounded-xl bg-[#fdf2ea] dark:bg-[#361f18] text-[#c8561d] dark:text-[#fdba74] flex items-center justify-center transition group-hover:scale-105">
+              <GraduationCap className="w-4 h-4" />
+            </div>
+            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200 group-hover:text-[#c8561d] dark:group-hover:text-[#fdba74] truncate w-full text-center">
+              Exámenes
+            </span>
+          </button>
+
+          <button
+            onClick={() => navigate('/estadisticas')}
+            className="p-2.5 sm:p-3 rounded-2xl bg-white dark:bg-[#14221f] border border-slate-200/80 dark:border-slate-800/80 flex flex-col items-center justify-center gap-1.5 hover:border-[#1c6ca1]/40 hover:bg-[#ebf5fb]/40 dark:hover:bg-[#142838] transition group shadow-2xs"
+            title="Estadísticas y Calificaciones"
+          >
+            <div className="w-9 h-9 rounded-xl bg-[#ebf5fb] dark:bg-[#162e40] text-[#1c6ca1] dark:text-[#7dd3fc] flex items-center justify-center transition group-hover:scale-105">
+              <BarChart2 className="w-4 h-4" />
+            </div>
+            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200 group-hover:text-[#1c6ca1] dark:group-hover:text-[#7dd3fc] truncate w-full text-center">
+              Notas/Stats
+            </span>
+          </button>
+
+          <button
+            onClick={() => navigate('/documentos')}
+            className="p-2.5 sm:p-3 rounded-2xl bg-white dark:bg-[#14221f] border border-slate-200/80 dark:border-slate-800/80 flex flex-col items-center justify-center gap-1.5 hover:border-[#7a35b8]/40 hover:bg-[#f4ecfb]/40 dark:hover:bg-[#281838] transition group shadow-2xs"
+            title="Documentos y Drive"
+          >
+            <div className="w-9 h-9 rounded-xl bg-[#f4ecfb] dark:bg-[#2e1a40] text-[#7a35b8] dark:text-[#d8b4fe] flex items-center justify-center transition group-hover:scale-105">
+              <Folder className="w-4 h-4" />
+            </div>
+            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200 group-hover:text-[#7a35b8] dark:group-hover:text-[#d8b4fe] truncate w-full text-center">
+              Drive/Docs
+            </span>
+          </button>
+
+          <button
+            onClick={() => navigate('/notas')}
+            className="p-2.5 sm:p-3 rounded-2xl bg-white dark:bg-[#14221f] border border-slate-200/80 dark:border-slate-800/80 flex flex-col items-center justify-center gap-1.5 hover:border-amber-500/40 hover:bg-amber-50/40 dark:hover:bg-[#2d2815] transition group shadow-2xs"
+            title="Notas rápidas"
+          >
+            <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-[#342a15] text-amber-600 dark:text-amber-400 flex items-center justify-center transition group-hover:scale-105">
+              <FileText className="w-4 h-4" />
+            </div>
+            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200 group-hover:text-amber-600 dark:group-hover:text-amber-400 truncate w-full text-center">
+              Notas
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {/* 5. PRÓXIMOS EVENTOS (Mockup 1) */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-extrabold text-slate-800 dark:text-slate-100">
+            Próximos eventos
+          </h2>
+          <button
+            onClick={() => navigate('/horario')}
+            className="text-xs font-semibold text-[#184a42] dark:text-[#6ee7b7] hover:underline"
+          >
+            Ver calendario &gt;
+          </button>
+        </div>
+
+        {allUpcomingEvents.length === 0 ? (
+          <div className="jami-card p-5 text-center space-y-1.5">
+            <p className="text-xs font-bold text-slate-600 dark:text-slate-300">
+              No tienes eventos ni clases programadas para hoy
+            </p>
+            <p className="text-[11px] text-slate-400">
+              Toca el botón + para añadir una clase, tutoría o entrega.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {allUpcomingEvents.slice(0, 4).map((evt, idx) => {
+              // Color styles matching mockup
+              const colors = [
+                { bg: 'bg-[#fdf2ea]/70 dark:bg-[#2d1c16]/70', border: 'border-[#fcdcc8] dark:border-[#48281d]', text: 'text-[#8c350d] dark:text-[#fdba74]', iconBg: 'bg-[#f8ded1] text-[#c8561d]' },
+                { bg: 'bg-[#ebf8f2]/70 dark:bg-[#122720]/70', border: 'border-[#d2efe2] dark:border-[#1b3d33]', text: 'text-[#145a3a] dark:text-[#a7f3d0]', iconBg: 'bg-[#d5f3e5] text-[#1b7a4e]' },
+                { bg: 'bg-[#f4ecfb]/70 dark:bg-[#251733]/70', border: 'border-[#e7d5f8] dark:border-[#3d2454]', text: 'text-[#582188] dark:text-[#e9d5ff]', iconBg: 'bg-[#ead6fa] text-[#7a35b8]' },
+                { bg: 'bg-[#ebf5fb]/70 dark:bg-[#13222e]/70', border: 'border-[#cce7f8] dark:border-[#1d374a]', text: 'text-[#144d73] dark:text-[#bae6fd]', iconBg: 'bg-[#d4ebf9] text-[#1c6ca1]' }
+              ];
+              const c = colors[idx % colors.length];
+
+              return (
                 <div
-                  className="w-4 h-12 rounded-lg shrink-0 shadow-inner"
-                  style={{ backgroundColor: activeOrNextClass.materia.color || '#3b82f6' }}
-                />
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded text-white">
-                      {activeOrNextClass.isCurrent ? 'Clase En Curso' : 'Próxima Clase'}
-                    </span>
-                    <span className="text-xs text-indigo-200 font-medium">
-                      {activeOrNextClass.horaInicio} - {activeOrNextClass.horaFin}
-                    </span>
+                  key={evt.id}
+                  className={`p-3.5 rounded-2xl ${c.bg} border ${c.border} flex items-center justify-between gap-3`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-xl ${c.iconBg} flex items-center justify-center shrink-0`}>
+                      <BookOpen className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs sm:text-sm font-extrabold text-slate-800 dark:text-slate-100">
+                        {evt.titulo}
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                        {evt.lugar}
+                      </div>
+                    </div>
                   </div>
-                  <h3 className="font-bold text-lg text-white mt-0.5">
-                    {activeOrNextClass.materia.nombre}
-                  </h3>
-                  <div className="text-xs text-indigo-100 font-medium">
-                    {activeOrNextClass.materia.aula || 'Aula no especificada'} • Prof: {activeOrNextClass.materia.profesor || 'Por definir'}
-                  </div>
+
+                  <span className="font-bold text-xs text-slate-700 dark:text-slate-200">
+                    {evt.horaInicio}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* 6. TAREA DESTACADA (Mockup 1) */}
+      <div className="space-y-2">
+        {featuredTask ? (
+          <div
+            onClick={() => navigate('/tareas')}
+            className="p-4 rounded-2xl bg-[#fdf2ea] dark:bg-[#2d1c16] border border-[#fcdcc8] dark:border-[#48281d] flex items-center justify-between gap-3 cursor-pointer hover:border-[#c8561d]/50 transition group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-[#fae0d3] dark:bg-[#43231a] flex items-center justify-center text-[#c8561d] shrink-0">
+                <Target className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#c8561d]">
+                  Tarea destacada
+                </div>
+                <div className="text-xs sm:text-sm font-extrabold text-slate-800 dark:text-slate-100 group-hover:text-[#c8561d] transition">
+                  {featuredTask.texto}
+                </div>
+                <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                  {featuredMateria?.nombre || 'General'} • {featuredTask.fechaLimite || 'Hoy'} • {featuredTask.horaLimite || '16:00'}
                 </div>
               </div>
+            </div>
 
-              <div className="bg-indigo-900/60 border border-indigo-400/30 px-4 py-2 rounded-xl text-center self-stretch sm:self-auto flex items-center justify-center gap-2">
-                <Clock className="w-4 h-4 text-amber-300 animate-pulse" />
-                <span className="font-extrabold text-sm sm:text-base text-amber-300 tracking-wide">
-                  {getCountdownString(activeOrNextClass)}
-                </span>
+            <ChevronRight className="w-4 h-4 text-[#c8561d] group-hover:translate-x-0.5 transition" />
+          </div>
+        ) : (
+          <div className="jami-card p-4 flex items-center justify-between">
+            <div>
+              <div className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                No tienes tareas pendientes
+              </div>
+              <div className="text-[11px] text-slate-400">
+                ¡Todo al día! Pulsa el botón + para registrar una nueva tarea.
               </div>
             </div>
-          ) : (
-            <div className="mt-5 bg-white/10 backdrop-blur-md border border-white/10 rounded-2xl p-4 text-indigo-100 text-xs sm:text-sm flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              <span>No tienes más clases programadas para hoy. ¡Excelente tiempo para adelantar tareas!</span>
-            </div>
-          )}
+            <button
+              onClick={() => setIsAddOpen(true)}
+              className="text-xs font-bold text-[#184a42] hover:underline"
+            >
+              + Añadir
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* 7. TU PROGRESO SEMANAL (Mockup 1) */}
+      <div className="jami-card p-4 sm:p-5 space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs sm:text-sm font-extrabold text-slate-800 dark:text-slate-100">
+            Tu progreso semanal
+          </h2>
+          <button
+            onClick={() => navigate('/sesiones')}
+            className="text-xs font-semibold text-[#184a42] dark:text-[#6ee7b7] hover:underline"
+          >
+            Ver más &gt;
+          </button>
+        </div>
+
+        <div className="flex items-baseline gap-2">
+          <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
+            {totalFocusMinutes > 0 ? `${focusHours}h ${focusRemainingMins}m` : '0h 0m'}
+          </span>
+          <span className="text-xs text-slate-400">enfoque completado</span>
+        </div>
+
+        {/* Segmented Progress Bars (Mockup 1) */}
+        <div className="grid grid-cols-5 gap-1.5 pt-1">
+          <div className="h-2 rounded-full bg-[#1c6ca1]" />
+          <div className="h-2 rounded-full bg-[#1b7a4e]" />
+          <div className="h-2 rounded-full bg-[#7a35b8]" />
+          <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-800" />
+          <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-800" />
         </div>
       </div>
 
-      {/* Overview Stat Counters */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div
-          onClick={() => navigate('/tareas')}
-          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm hover:shadow-md transition cursor-pointer group"
-        >
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-medium">
-            <span>Tareas Pendientes</span>
-            <AlertCircle className="w-4 h-4 text-indigo-500" />
-          </div>
-          <div className="mt-2 text-2xl sm:text-3xl font-black text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">
-            {pendingTasks.length}
-          </div>
-          <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-            {dueTodayTasks.length} vencen hoy
-          </div>
-        </div>
+      {/* Add Modal */}
+      <AddActionModal isOpen={isAddOpen} onClose={() => setIsAddOpen(false)} />
 
-        <div
-          onClick={() => navigate('/tareas')}
-          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm hover:shadow-md transition cursor-pointer group"
-        >
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-medium">
-            <span>Tareas Vencidas</span>
-            <AlertCircle className="w-4 h-4 text-red-500" />
-          </div>
-          <div className="mt-2 text-2xl sm:text-3xl font-black text-slate-900 dark:text-white group-hover:text-red-500 transition">
-            {overdueTasks.length}
-          </div>
-          <div className="mt-1 text-[11px] text-red-500 font-medium">
-            {overdueTasks.length > 0 ? 'Requieren atención urgente' : '¡Todo al día!'}
-          </div>
-        </div>
-
-        <div
-          onClick={() => navigate('/materias')}
-          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm hover:shadow-md transition cursor-pointer group"
-        >
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-medium">
-            <span>Materias Inscritas</span>
-            <BookOpen className="w-4 h-4 text-emerald-500" />
-          </div>
-          <div className="mt-2 text-2xl sm:text-3xl font-black text-slate-900 dark:text-white group-hover:text-emerald-500 transition">
-            {materias ? materias.length : 0}
-          </div>
-          <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-            Ver horarios y syllabus
-          </div>
-        </div>
-
-        <div
-          onClick={() => navigate('/concentracion')}
-          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm hover:shadow-md transition cursor-pointer group"
-        >
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-medium">
-            <span>Racha de Estudio</span>
-            <Flame className="w-4 h-4 text-amber-500" />
-          </div>
-          <div className="mt-2 text-2xl sm:text-3xl font-black text-amber-600 dark:text-amber-400">
-            {streak} <span className="text-sm font-normal">días</span>
-          </div>
-          <div className="mt-1 text-[11px] text-amber-600 dark:text-amber-400 font-medium">
-            ¡Sigue así diariamente!
-          </div>
-        </div>
-      </div>
-
-      {/* Dashboard Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column (2/3): Urgent Tasks */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                  <span>Tareas Próximas a Vencer</span>
-                </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Ordenadas por urgencia y prioridad
-                </p>
-              </div>
-              <button
-                onClick={() => navigate('/tareas')}
-                className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
-              >
-                <span>Ver todas</span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-
-            {pendingTasks.length === 0 ? (
-              <div className="text-center py-8 text-slate-400 text-sm">
-                🎉 ¡No tienes tareas pendientes! Tómate un respiro o crea nuevas.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {pendingTasks.slice(0, 5).map(task => {
-                  const materia = materias?.find(m => m.id === task.materiaId);
-                  const isOverdue = task.fechaLimite && task.fechaLimite < todayStr;
-                  const isToday = task.fechaLimite === todayStr;
-
-                  return (
-                    <div
-                      key={task.id}
-                      className={`p-3.5 border rounded-2xl transition flex items-start justify-between gap-3 ${
-                        isOverdue
-                          ? 'bg-red-500/5 border-red-500/30'
-                          : isToday
-                          ? 'bg-amber-500/5 border-amber-500/30'
-                          : 'bg-slate-50/50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800'
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <input
-                          type="checkbox"
-                          checked={task.estado === 'hecha'}
-                          onChange={() => toggleTaskStatus(task)}
-                          className="mt-1 w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
-                        />
-                        <div>
-                          <p className="font-semibold text-sm text-slate-900 dark:text-slate-100">
-                            {task.texto}
-                          </p>
-
-                          <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs">
-                            {materia && (
-                              <span
-                                className="px-2 py-0.5 rounded-md font-semibold text-[11px] text-white"
-                                style={{ backgroundColor: materia.color || '#6366f1' }}
-                              >
-                                {materia.nombre}
-                              </span>
-                            )}
-
-                            <span
-                              className={`px-2 py-0.5 rounded-md font-semibold text-[11px] uppercase ${
-                                task.prioridad === 'alta'
-                                  ? 'bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-400'
-                                  : task.prioridad === 'media'
-                                  ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400'
-                                  : 'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400'
-                              }`}
-                            >
-                              {task.prioridad}
-                            </span>
-
-                            {task.fechaLimite && (
-                              <span
-                                className={`font-medium ${
-                                  isOverdue
-                                    ? 'text-red-600 dark:text-red-400 font-bold'
-                                    : isToday
-                                    ? 'text-amber-600 dark:text-amber-400 font-bold'
-                                    : 'text-slate-500 dark:text-slate-400'
-                                }`}
-                              >
-                                📅 {isOverdue ? 'Vencida (' + task.fechaLimite + ')' : isToday ? 'Vence hoy' : task.fechaLimite}
-                              </span>
-                            )}
-
-                            {task.enlaceDrive && (
-                              <a
-                                href={task.enlaceDrive}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 font-medium hover:underline"
-                              >
-                                <ExternalLink className="w-3 h-3" />
-                                <span>Drive</span>
-                              </a>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right Column (1/3): Quick Notes & Exams */}
-        <div className="space-y-6">
-          {/* Upcoming Exams Countdown */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Award className="w-5 h-5 text-red-500" />
-                <span>Próximos Exámenes</span>
-              </h2>
-            </div>
-
-            {(!examenes || examenes.length === 0) ? (
-              <p className="text-xs text-slate-400 py-4 text-center">
-                No tienes exámenes registrados aún.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {examenes.slice(0, 3).map(ex => {
-                  const materia = materias?.find(m => m.id === ex.materiaId);
-                  const examDate = new Date(ex.fechaHora);
-                  const diffDays = Math.ceil((examDate - new Date()) / (1000 * 60 * 60 * 24));
-
-                  return (
-                    <div key={ex.id} className="p-3 bg-red-500/5 border border-red-500/20 rounded-2xl">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-wider">
-                          {diffDays <= 0 ? '¡HOY!' : `Faltan ${diffDays} días`}
-                        </span>
-                        <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                          {examDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
-                        </span>
-                      </div>
-                      <h4 className="font-bold text-sm text-slate-900 dark:text-white mt-1">
-                        {ex.titulo}
-                      </h4>
-                      {materia && (
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                          {materia.nombre} • {ex.aula || materia.aula}
-                        </p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Quick Notes Feed */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
-                <span>Notas Rápida</span>
-              </h2>
-            </div>
-
-            {(!notas || notas.length === 0) ? (
-              <p className="text-xs text-slate-400 py-4 text-center">
-                Sin notas de captura rápida.
-              </p>
-            ) : (
-              <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
-                {notas.map(n => {
-                  const materia = materias?.find(m => m.id === n.materiaId);
-                  return (
-                    <div
-                      key={n.id}
-                      className="p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-xl relative group text-xs"
-                    >
-                      <button
-                        onClick={() => deleteNota(n.id)}
-                        className="absolute top-2 right-2 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                      <p className="text-slate-800 dark:text-slate-200 pr-5 leading-relaxed">
-                        {n.texto}
-                      </p>
-                      <div className="mt-2 flex items-center justify-between text-[10px] text-slate-400">
-                        <span>{new Date(n.fecha).toLocaleDateString('es-ES')}</span>
-                        {materia && (
-                          <span className="font-semibold text-indigo-500">
-                            {materia.nombre}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      {/* Global Search Modal */}
+      <GlobalSearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
     </div>
   );
 }

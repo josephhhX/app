@@ -31,8 +31,7 @@ function createChunk(type, data) {
   return buf;
 }
 
-function generatePNG(width, height) {
-  // PNG Signature
+function generateJamiPNG(width, height) {
   const sig = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
   // IHDR Chunk
@@ -40,60 +39,94 @@ function generatePNG(width, height) {
   ihdrData.writeUInt32BE(width, 0);
   ihdrData.writeUInt32BE(height, 4);
   ihdrData[8] = 8;  // bit depth
-  ihdrData[9] = 6;  // color type RGBA
-  ihdrData[10] = 0; // compression
-  ihdrData[11] = 0; // filter
-  ihdrData[12] = 0; // interlace
+  ihdrData[9] = 6;  // RGBA
+  ihdrData[10] = 0;
+  ihdrData[11] = 0;
+  ihdrData[12] = 0;
   const ihdrChunk = createChunk('IHDR', ihdrData);
 
-  // Raw image data with scanlines
-  // Indigo background #4f46e5 -> R:79, G:70, B:229, A:255
   const rowSize = 1 + width * 4;
   const rawData = Buffer.alloc(rowSize * height);
 
-  const bgR = 79, bgG = 70, bgB = 229, bgA = 255;
-  const fgR = 255, fgG = 255, fgB = 255, fgA = 255;
+  // Background Dark Teal #184a42
+  const bgR = 24, bgG = 74, bgB = 66, bgA = 255;
+  // White #ffffff
+  const wR = 255, wG = 255, wB = 255, wA = 255;
+  // Dark Teal for eyes/nose
+  const dR = 20, dG = 60, dB = 54, dA = 255;
 
-  // Center 'A' emblem radius & position
   const cx = width / 2;
   const cy = height / 2;
-  const size = width * 0.35;
 
   for (let y = 0; y < height; y++) {
     const rowOffset = y * rowSize;
-    rawData[rowOffset] = 0; // Filter type 0 (None)
+    rawData[rowOffset] = 0;
 
     for (let x = 0; x < width; x++) {
       const pxOffset = rowOffset + 1 + x * 4;
 
-      // Draw "A" letter strokes
-      const relX = (x - cx) / size;
-      const relY = (y - cy) / size;
+      // Normalized coordinates (-1 to 1)
+      const nx = (x - cx) / (width * 0.46);
+      const ny = (y - cy) / (height * 0.46);
 
-      const inLeftLeg = relY >= -0.7 && relY <= 0.7 && Math.abs(relX - (-0.4 - relY * -0.3)) < 0.14;
-      const inRightLeg = relY >= -0.7 && relY <= 0.7 && Math.abs(relX - (0.4 + relY * -0.3)) < 0.14;
-      const inCrossbar = relY >= 0.0 && relY <= 0.25 && Math.abs(relX) <= 0.35;
-      const isEmblem = inLeftLeg || inRightLeg || inCrossbar;
+      // Default background teal
+      let r = bgR, g = bgG, b = bgB, a = bgA;
 
-      if (isEmblem) {
-        rawData[pxOffset] = fgR;
-        rawData[pxOffset + 1] = fgG;
-        rawData[pxOffset + 2] = fgB;
-        rawData[pxOffset + 3] = fgA;
-      } else {
-        rawData[pxOffset] = bgR;
-        rawData[pxOffset + 1] = bgG;
-        rawData[pxOffset + 2] = bgB;
-        rawData[pxOffset + 3] = bgA;
+      // Cat Head Body: oval centered slightly lower
+      const headDist = (nx * nx) / (0.75 * 0.75) + ((ny - 0.15) * (ny - 0.15)) / (0.55 * 0.55);
+
+      // Left Ear: triangle between (-0.6, -0.1), (-0.45, -0.8), (-0.15, -0.3)
+      const inLeftEar = (nx >= -0.65 && nx <= -0.15 && ny >= -0.85 && ny <= 0.0) &&
+                        (ny >= -0.85 + (nx + 0.45) * 3.5) &&
+                        (ny >= -0.85 - (nx + 0.45) * 2.8);
+
+      // Right Ear: triangle symmetric
+      const inRightEar = (nx >= 0.15 && nx <= 0.65 && ny >= -0.85 && ny <= 0.0) &&
+                         (ny >= -0.85 - (nx - 0.45) * 3.5) &&
+                         (ny >= -0.85 + (nx - 0.45) * 2.8);
+
+      const inCatFace = headDist <= 1.0 || inLeftEar || inRightEar;
+
+      if (inCatFace) {
+        r = wR; g = wG; b = wB; a = wA;
+
+        // Cat Eyes
+        const leftEyeDist = ((nx + 0.26) * (nx + 0.26)) / (0.07 * 0.07) + ((ny - 0.08) * (ny - 0.08)) / (0.09 * 0.09);
+        const rightEyeDist = ((nx - 0.26) * (nx - 0.26)) / (0.07 * 0.07) + ((ny - 0.08) * (ny - 0.08)) / (0.09 * 0.09);
+
+        // Eye highlights
+        const leftHigh = Math.hypot(nx + 0.24, ny - 0.05);
+        const rightHigh = Math.hypot(nx - 0.28, ny - 0.05);
+
+        if (leftHigh <= 0.03 || rightHigh <= 0.03) {
+          r = wR; g = wG; b = wB;
+        } else if (leftEyeDist <= 1.0 || rightEyeDist <= 1.0) {
+          r = dR; g = dG; b = dB;
+        }
+
+        // Cat Nose: tiny inverted triangle around (0, 0.22)
+        if (ny >= 0.19 && ny <= 0.26 && Math.abs(nx) <= (0.26 - ny) * 0.8) {
+          r = dR; g = dG; b = dB;
+        }
+
+        // Cat Mouth: small curve around (0, 0.32)
+        if (ny >= 0.29 && ny <= 0.33 && Math.abs(nx) <= 0.12) {
+          const dy = ny - 0.31;
+          if (Math.abs(dy - Math.abs(nx) * 0.2) <= 0.02) {
+            r = dR; g = dG; b = dB;
+          }
+        }
       }
+
+      rawData[pxOffset] = r;
+      rawData[pxOffset + 1] = g;
+      rawData[pxOffset + 2] = b;
+      rawData[pxOffset + 3] = a;
     }
   }
 
-  // IDAT Chunk (Deflate compressed)
   const compressed = zlib.deflateSync(rawData);
   const idatChunk = createChunk('IDAT', compressed);
-
-  // IEND Chunk
   const iendChunk = createChunk('IEND', Buffer.alloc(0));
 
   return Buffer.concat([sig, ihdrChunk, idatChunk, iendChunk]);
@@ -101,27 +134,9 @@ function generatePNG(width, height) {
 
 const publicDir = path.join(__dirname, '..', 'public');
 
-console.log('Generando imágenes PWA...');
-
-fs.writeFileSync(path.join(publicDir, 'pwa-192x192.png'), generatePNG(192, 192));
-console.log('✓ Creado pwa-192x192.png');
-
-fs.writeFileSync(path.join(publicDir, 'pwa-512x512.png'), generatePNG(512, 512));
-console.log('✓ Creado pwa-512x512.png');
-
-fs.writeFileSync(path.join(publicDir, 'apple-touch-icon.png'), generatePNG(180, 180));
-console.log('✓ Creado apple-touch-icon.png');
-
-fs.writeFileSync(path.join(publicDir, 'favicon.ico'), generatePNG(64, 64));
-console.log('✓ Creado favicon.ico');
-
-// Maskable SVG Icon
-const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <rect width="512" height="512" fill="#4f46e5" rx="100"/>
-  <text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-weight="900" font-size="280" fill="#ffffff">A</text>
-</svg>`;
-
-fs.writeFileSync(path.join(publicDir, 'masked-icon.svg'), svgContent);
-console.log('✓ Creado masked-icon.svg');
-
-console.log('¡Todas las imágenes PWA han sido generadas con éxito!');
+console.log('Generando iconos de Jami...');
+fs.writeFileSync(path.join(publicDir, 'pwa-192x192.png'), generateJamiPNG(192, 192));
+fs.writeFileSync(path.join(publicDir, 'pwa-512x512.png'), generateJamiPNG(512, 512));
+fs.writeFileSync(path.join(publicDir, 'apple-touch-icon.png'), generateJamiPNG(180, 180));
+fs.writeFileSync(path.join(publicDir, 'favicon.ico'), generateJamiPNG(64, 64));
+console.log('✓ ¡Iconos de Jami generados con éxito!');

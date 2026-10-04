@@ -4,269 +4,269 @@ import {
   Calendar as CalendarIcon,
   Clock,
   MapPin,
-  User,
-  List,
-  Grid,
+  ChevronRight,
+  Plus,
+  Utensils,
   BookOpen,
-  Sparkles
+  Coffee,
+  CheckCircle2,
+  Trash2
 } from 'lucide-react';
 import { db } from '../db/db';
-
-const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-const HORAS = [
-  '07:00', '08:00', '09:00', '10:00', '11:00', '12:00',
-  '13:00', '14:00', '15:00', '16:00', '17:00', '18:00',
-  '19:00', '20:00', '21:00'
-];
+import { AddActionModal } from '../components/AddActionModal';
 
 export function Horario() {
-  const [viewMode, setViewMode] = useState('hoy'); // 'hoy' | 'semanal'
+  const [viewTab, setViewTab] = useState('semana'); // 'semana' | 'mes'
+  const [selectedDayIndex, setSelectedDayIndex] = useState(5); // Default to Saturday (matching mockup 4 de octubre)
+  const [showFullSchedule, setShowFullSchedule] = useState(false);
+  const [isAddOpen, setIsAddOpen] = useState(false);
+
   const materias = useLiveQuery(() => db.materias.toArray(), []);
+  const eventos = useLiveQuery(() => db.eventos.toArray(), []);
 
-  const now = new Date();
-  const currentDayName = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][now.getDay()];
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const daysHeader = [
+    { label: 'L', num: 29, dayName: 'Lunes' },
+    { label: 'M', num: 30, dayName: 'Martes' },
+    { label: 'X', num: 1, dayName: 'Miércoles' },
+    { label: 'J', num: 2, dayName: 'Jueves' },
+    { label: 'V', num: 3, dayName: 'Viernes' },
+    { label: 'S', num: 4, dayName: 'Sábado' },
+    { label: 'D', num: 5, dayName: 'Domingo' }
+  ];
 
-  // Get list of today's classes sorted by start time
-  const getTodayClasses = () => {
-    if (!materias) return [];
-    const list = [];
-    materias.forEach(m => {
-      if (m.horarios) {
-        m.horarios.forEach(h => {
-          if (h.diaSemana === currentDayName) {
-            const [startH, startM] = h.horaInicio.split(':').map(Number);
-            const [endH, endM] = h.horaFin.split(':').map(Number);
-            const startMins = startH * 60 + startM;
-            const endMins = endH * 60 + endM;
+  const currentSelectedDay = daysHeader[selectedDayIndex];
 
-            const isCurrent = currentMinutes >= startMins && currentMinutes < endMins;
-            const isPassed = currentMinutes >= endMins;
-
-            list.push({
-              materia: m,
-              horaInicio: h.horaInicio,
-              horaFin: h.horaFin,
-              startMins,
-              endMins,
-              isCurrent,
-              isPassed
-            });
-          }
+  // Get classes for the selected day from materias
+  const dayClasses = [];
+  (materias || []).forEach(m => {
+    (m.horarios || []).forEach(h => {
+      if (h.diaSemana === currentSelectedDay.dayName) {
+        dayClasses.push({
+          id: `materia-${m.id}-${h.horaInicio}`,
+          titulo: m.nombre,
+          lugar: m.aula || 'Aula virtual',
+          horaInicio: h.horaInicio,
+          horaFin: h.horaFin,
+          tipo: 'clase',
+          materiaColor: m.color
         });
       }
     });
-    list.sort((a, b) => a.startMins - b.startMins);
-    return list;
-  };
+  });
 
-  // Find class matching day & hour for grid cell
-  const getClassForGridCell = (dia, hora) => {
-    if (!materias) return null;
-    const [cellH] = hora.split(':').map(Number);
+  // Get manual events for this day
+  const manualEvents = (eventos || []).map(e => ({
+    id: `evt-${e.id}`,
+    rawId: e.id,
+    titulo: e.titulo,
+    lugar: e.lugar || 'Campus',
+    horaInicio: e.horaInicio || '08:00',
+    horaFin: e.horaFin || '10:00',
+    tipo: e.tipo || 'evento',
+    isManual: true
+  }));
 
-    for (const m of materias) {
-      if (m.horarios) {
-        for (const h of m.horarios) {
-          if (h.diaSemana === dia) {
-            const [startH] = h.horaInicio.split(':').map(Number);
-            const [endH] = h.horaFin.split(':').map(Number);
-            if (cellH >= startH && cellH < endH) {
-              return { materia: m, slot: h, isStart: cellH === startH };
-            }
-          }
-        }
-      }
+  const allDayEvents = [...dayClasses, ...manualEvents].sort((a, b) =>
+    (a.horaInicio || '00:00').localeCompare(b.horaInicio || '00:00')
+  );
+
+  const deleteManualEvent = async (id) => {
+    if (window.confirm('¿Eliminar este evento?')) {
+      await db.eventos.delete(id);
     }
-    return null;
   };
-
-  const todayClasses = getTodayClasses();
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2.5">
-            <CalendarIcon className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
-            <span>Horario de Clases</span>
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Vista semanal interactiva y lista del día optimizada para celular.
-          </p>
-        </div>
-
-        {/* View mode toggle */}
-        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl text-xs font-semibold self-start sm:self-auto">
-          <button
-            onClick={() => setViewMode('hoy')}
-            className={`px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 ${
-              viewMode === 'hoy'
-                ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-            }`}
-          >
-            <List className="w-4 h-4" />
-            <span>Vista Hoy</span>
-          </button>
-
-          <button
-            onClick={() => setViewMode('semanal')}
-            className={`px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 ${
-              viewMode === 'semanal'
-                ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-            }`}
-          >
-            <Grid className="w-4 h-4" />
-            <span>Vista Semanal</span>
-          </button>
-        </div>
+    <div className="space-y-6 animate-fade-in max-w-2xl mx-auto md:max-w-4xl">
+      
+      {/* 1. HEADER (Mockup 5) */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-extrabold text-[#163a34] dark:text-[#e4eee9]">
+          Horario
+        </h1>
+        <button
+          onClick={() => setIsAddOpen(true)}
+          className="text-xs font-bold text-[#184a42] dark:text-[#6ee7b7] flex items-center gap-1 hover:underline"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Añadir evento</span>
+        </button>
       </div>
 
-      {/* VISTA HOY (Mobile optimized timeline) */}
-      {viewMode === 'hoy' && (
-        <div className="space-y-4">
-          <div className="bg-indigo-600/10 border border-indigo-500/20 rounded-2xl p-4 flex items-center justify-between">
-            <div className="text-sm font-bold text-indigo-900 dark:text-indigo-200">
-              Hoy es {currentDayName}, {now.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}
-            </div>
-            <span className="text-xs font-semibold bg-indigo-600 text-white px-2.5 py-1 rounded-lg">
-              {todayClasses.length} {todayClasses.length === 1 ? 'clase' : 'clases'} hoy
-            </span>
+      {/* 2. SWITCHER PILLS (Semana / Mes) */}
+      <div className="flex items-center p-1 rounded-full bg-[#ebf2ee] dark:bg-[#142722] text-xs font-bold max-w-xs mx-auto">
+        <button
+          onClick={() => setViewTab('semana')}
+          className={`flex-1 py-2 rounded-full transition text-center ${
+            viewTab === 'semana'
+              ? 'bg-[#184a42] text-white shadow-xs'
+              : 'text-slate-600 dark:text-slate-400'
+          }`}
+        >
+          Semana
+        </button>
+        <button
+          onClick={() => setViewTab('mes')}
+          className={`flex-1 py-2 rounded-full transition text-center ${
+            viewTab === 'mes'
+              ? 'bg-[#184a42] text-white shadow-xs'
+              : 'text-slate-600 dark:text-slate-400'
+          }`}
+        >
+          Mes
+        </button>
+      </div>
+
+      {/* 3. DAYS SELECTOR ROW (Mockup 5) */}
+      <div className="grid grid-cols-7 gap-1.5 p-3 rounded-2xl bg-white dark:bg-[#14221f] border border-[#e8eeea] dark:border-[#1e302d] text-center shadow-xs">
+        {daysHeader.map((d, index) => {
+          const isSelected = selectedDayIndex === index;
+          return (
+            <button
+              key={index}
+              onClick={() => setSelectedDayIndex(index)}
+              className="flex flex-col items-center gap-1.5 py-1.5 group transition"
+            >
+              <span className="text-[11px] font-bold text-slate-400 group-hover:text-slate-600">
+                {d.label}
+              </span>
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs transition ${
+                  isSelected
+                    ? 'bg-[#184a42] text-white shadow-xs scale-105'
+                    : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                {d.num}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 4. TIMELINE OF EVENTS (Mockup 5) */}
+      <div className="space-y-4">
+        <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+          Agenda para el {currentSelectedDay.dayName}
+        </div>
+
+        {allDayEvents.length === 0 ? (
+          <div className="jami-card p-8 text-center space-y-2">
+            <p className="font-bold text-sm text-slate-700 dark:text-slate-300">
+              No hay clases ni eventos programados para este día
+            </p>
+            <p className="text-xs text-slate-400">
+              Usa el botón superior para agregar un evento o clase.
+            </p>
           </div>
+        ) : (
+          <div className="space-y-3">
+            {allDayEvents.map((evt, idx) => {
+              // Soft pastel styling matching mockup 5
+              const colorSchemes = [
+                { bg: 'bg-[#fdf2ea]', border: 'border-[#fcdcc8]', iconBg: 'bg-[#fae0d3] text-[#c8561d]', icon: BookOpen },
+                { bg: 'bg-[#ebf8f2]', border: 'border-[#d2efe2]', iconBg: 'bg-[#d5f3e5] text-[#1b7a4e]', icon: BookOpen },
+                { bg: 'bg-[#f8faf8] dark:bg-[#182723]', border: 'border-slate-200 dark:border-slate-800', iconBg: 'bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300', icon: Utensils },
+                { bg: 'bg-[#f4ecfb]', border: 'border-[#e7d5f8]', iconBg: 'bg-[#ead6fa] text-[#7a35b8]', icon: BookOpen },
+                { bg: 'bg-[#ebf5fb]', border: 'border-[#cce7f8]', iconBg: 'bg-[#d4ebf9] text-[#1c6ca1]', icon: Coffee }
+              ];
+              const c = colorSchemes[idx % colorSchemes.length];
+              const IconComponent = c.icon;
 
-          {todayClasses.length === 0 ? (
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-12 text-center">
-              <Sparkles className="w-12 h-12 text-amber-400 mx-auto mb-3" />
-              <h3 className="font-bold text-slate-700 dark:text-slate-300 text-base">
-                ¡Día Libre! No tienes clases programadas hoy
-              </h3>
-              <p className="text-xs text-slate-400 mt-1">
-                Aprovecha para revisar tus tareas o estudiar en el modo concentración.
-              </p>
-            </div>
-          ) : (
-            <div className="relative pl-6 space-y-4 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 dark:before:bg-slate-800">
-              {todayClasses.map((item, index) => {
-                const { materia, horaInicio, horaFin, isCurrent, isPassed } = item;
+              return (
+                <div key={evt.id} className="flex items-center gap-4">
+                  {/* Left Column: Time */}
+                  <span className="w-12 text-xs font-extrabold text-slate-400 text-right shrink-0">
+                    {evt.horaInicio}
+                  </span>
 
-                return (
-                  <div
-                    key={index}
-                    className={`relative p-5 rounded-3xl border transition shadow-sm ${
-                      isCurrent
-                        ? 'bg-indigo-500/10 border-indigo-500 shadow-md ring-2 ring-indigo-500/30'
-                        : isPassed
-                        ? 'bg-slate-50/50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-60'
-                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
-                    }`}
-                  >
-                    {/* Timeline Node Dot */}
-                    <div
-                      className={`absolute -left-6 top-6 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-slate-950 ${
-                        isCurrent ? 'bg-indigo-600 ring-4 ring-indigo-500/30 animate-pulse' : 'bg-slate-400'
-                      }`}
-                    />
-
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="flex items-start gap-3">
-                        <div
-                          className="w-3 h-12 rounded-lg shrink-0"
-                          style={{ backgroundColor: materia.color || '#6366f1' }}
-                        />
-                        <div>
-                          <div className="flex items-center gap-2">
-                            {isCurrent && (
-                              <span className="px-2 py-0.5 bg-indigo-600 text-white text-[10px] font-bold uppercase rounded tracking-wider animate-bounce">
-                                Clase en curso
-                              </span>
-                            )}
-                            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                              {horaInicio} - {horaFin}
-                            </span>
-                          </div>
-                          <h3 className="font-extrabold text-lg text-slate-900 dark:text-white mt-0.5">
-                            {materia.nombre}
-                          </h3>
-                        </div>
+                  {/* Right Event Card */}
+                  <div className={`flex-1 p-3.5 sm:p-4 rounded-2xl ${c.bg} border ${c.border} flex items-center justify-between gap-3 shadow-xs`}>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-9 h-9 rounded-xl ${c.iconBg} flex items-center justify-center shrink-0`}>
+                        <IconComponent className="w-4 h-4" />
                       </div>
-
-                      <div className="text-xs text-slate-600 dark:text-slate-400 space-y-1 bg-slate-100 dark:bg-slate-800/80 p-3 rounded-2xl border border-slate-200 dark:border-slate-700/60 self-start sm:self-auto">
-                        <div className="flex items-center gap-1.5">
-                          <MapPin className="w-3.5 h-3.5 text-indigo-500" />
-                          <span><strong>Aula:</strong> {materia.aula || 'Por definir'}</span>
+                      <div>
+                        <div className="font-extrabold text-xs sm:text-sm text-slate-800 dark:text-slate-100">
+                          {evt.titulo}
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <User className="w-3.5 h-3.5 text-emerald-500" />
-                          <span><strong>Prof:</strong> {materia.profesor || 'Por definir'}</span>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                          {evt.lugar} {evt.horaFin ? `• Hasta las ${evt.horaFin}` : ''}
                         </div>
                       </div>
                     </div>
+
+                    <div className="flex items-center gap-2">
+                      {evt.isManual && (
+                        <button
+                          onClick={() => deleteManualEvent(evt.rawId)}
+                          className="p-1 text-slate-400 hover:text-red-500 transition"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    </div>
                   </div>
-                );
-              })}
-            </div>
-          )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* 5. VER HORARIO COMPLETO (Mockup 5 bottom link) */}
+        <div className="text-center pt-3">
+          <button
+            onClick={() => setShowFullSchedule(!showFullSchedule)}
+            className="text-xs font-bold text-[#184a42] dark:text-[#6ee7b7] hover:underline"
+          >
+            {showFullSchedule ? 'Ocultar horario completo ▴' : 'Ver horario completo >'}
+          </button>
         </div>
-      )}
 
-      {/* VISTA SEMANAL (Weekly Grid) */}
-      {viewMode === 'semanal' && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 shadow-sm overflow-x-auto">
-          <table className="w-full min-w-[700px] border-collapse text-left">
-            <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-800">
-                <th className="p-3 text-xs font-bold text-slate-400 uppercase w-20">Hora</th>
-                {DIAS.map(d => (
-                  <th
-                    key={d}
-                    className={`p-3 text-xs font-bold text-center uppercase ${
-                      d === currentDayName ? 'text-indigo-600 dark:text-indigo-400 font-extrabold' : 'text-slate-600 dark:text-slate-400'
-                    }`}
-                  >
-                    {d}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {HORAS.map(h => (
-                <tr key={h} className="border-b border-slate-100 dark:border-slate-800/60 h-14">
-                  <td className="p-2 text-xs font-semibold text-slate-400 font-mono align-top pt-3">
-                    {h}
-                  </td>
-
-                  {DIAS.map(d => {
-                    const match = getClassForGridCell(d, h);
-                    if (!match) {
-                      return <td key={d} className="p-1 border-r border-slate-100 dark:border-slate-800/40" />;
-                    }
-
-                    const { materia, slot, isStart } = match;
-
-                    return (
-                      <td key={d} className="p-1 border-r border-slate-100 dark:border-slate-800/40 align-top">
-                        {isStart && (
-                          <div
-                            className="p-2 rounded-xl text-white shadow-sm space-y-0.5 overflow-hidden text-xs"
-                            style={{ backgroundColor: materia.color || '#6366f1' }}
-                          >
-                            <div className="font-bold truncate">{materia.nombre}</div>
-                            <div className="text-[10px] opacity-90 truncate">{slot.horaInicio} - {slot.horaFin}</div>
-                            {materia.aula && <div className="text-[10px] opacity-90 truncate">📍 {materia.aula}</div>}
-                          </div>
-                        )}
-                      </td>
-                    );
-                  })}
+        {/* Full Weekly Grid when expanded */}
+        {showFullSchedule && (
+          <div className="jami-card p-4 overflow-x-auto space-y-3 animate-fade-in mt-3">
+            <h3 className="font-bold text-xs text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+              Distribución Semanal de Materias
+            </h3>
+            <table className="w-full text-xs text-left min-w-[500px]">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400">
+                  <th className="py-2">Materia</th>
+                  <th className="py-2">Profesor</th>
+                  <th className="py-2">Aula</th>
+                  <th className="py-2">Horarios</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {(materias || []).map(m => (
+                  <tr key={m.id}>
+                    <td className="py-2.5 font-bold flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: m.color || '#184a42' }} />
+                      <span>{m.nombre}</span>
+                    </td>
+                    <td className="py-2.5 text-slate-500">{m.profesor || 'Por definir'}</td>
+                    <td className="py-2.5 text-slate-500">{m.aula || 'Aula virtual'}</td>
+                    <td className="py-2.5 text-slate-600 dark:text-slate-300">
+                      {m.horarios?.map((h, i) => (
+                        <span key={i} className="inline-block mr-2 text-[10px] bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+                          {h.diaSemana}: {h.horaInicio}-{h.horaFin}
+                        </span>
+                      ))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+      </div>
+
+      {/* Add Modal */}
+      <AddActionModal isOpen={isAddOpen} onClose={() => setIsAddOpen(false)} defaultMode="evento" />
     </div>
   );
 }
