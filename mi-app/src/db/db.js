@@ -27,6 +27,7 @@ export async function initDefaultConfig() {
       { key: 'userEmail', value: '' },
       { key: 'onboardingComplete', value: false },
       { key: 'theme', value: 'light' },
+      { key: 'accent', value: 'bosque' },
       { key: 'notificationTimeOffset', value: 15 },
       { key: 'streakCount', value: 0 },
       { key: 'batteryAlertDismissed', value: false }

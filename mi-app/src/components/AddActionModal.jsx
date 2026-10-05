@@ -28,6 +28,7 @@ export function AddActionModal({ isOpen, onClose, defaultMode = 'menu' }) {
   const [taskFecha, setTaskFecha] = useState(new Date().toISOString().split('T')[0]);
   const [taskHora, setTaskHora] = useState('16:00');
   const [taskPrioridad, setTaskPrioridad] = useState('media'); // urgente, media, baja, ninguna
+  const [taskReminder, setTaskReminder] = useState('60');
 
   // Event form
   const [eventoTitulo, setEventoTitulo] = useState('');
@@ -36,6 +37,8 @@ export function AddActionModal({ isOpen, onClose, defaultMode = 'menu' }) {
   const [eventoHoraInicio, setEventoHoraInicio] = useState('08:00');
   const [eventoHoraFin, setEventoHoraFin] = useState('10:00');
   const [eventoTipo, setEventoTipo] = useState('clase'); // clase, tutoria, entrega, almuerzo, estudio
+  const [eventoFecha, setEventoFecha] = useState(new Date().toISOString().split('T')[0]);
+  const [eventoReminder, setEventoReminder] = useState('15');
 
   // Idea/Goal form
   const [ideaTitulo, setIdeaTitulo] = useState('');
@@ -88,6 +91,7 @@ export function AddActionModal({ isOpen, onClose, defaultMode = 'menu' }) {
       horaLimite: taskHora,
       estado: 'pendiente',
       prioridad: taskPrioridad,
+      recordatorioMinutos: taskReminder === 'none' ? null : Number(taskReminder),
       esDestacada: taskPrioridad === 'urgente',
       subtareas: []
     });
@@ -106,7 +110,8 @@ export function AddActionModal({ isOpen, onClose, defaultMode = 'menu' }) {
       lugar: eventoLugar.trim(),
       horaInicio: eventoHoraInicio,
       horaFin: eventoHoraFin,
-      fecha: new Date().toISOString().split('T')[0],
+      fecha: eventoFecha,
+      recordatorioMinutos: eventoReminder === 'none' ? null : Number(eventoReminder),
       tipo: eventoTipo
     });
 
@@ -309,6 +314,13 @@ export function AddActionModal({ isOpen, onClose, defaultMode = 'menu' }) {
               </div>
             </div>
 
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Recordatorio</label>
+              <select value={taskReminder} onChange={(e) => setTaskReminder(e.target.value)} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs">
+                <option value="none">Sin recordatorio</option><option value="15">15 minutos antes</option><option value="60">1 hora antes</option><option value="1440">1 día antes</option>
+              </select>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1">Fecha</label>
@@ -367,6 +379,10 @@ export function AddActionModal({ isOpen, onClose, defaultMode = 'menu' }) {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Fecha</label>
+                <input type="date" value={eventoFecha} onChange={(e) => setEventoFecha(e.target.value)} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs" />
+              </div>
+              <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1">Lugar / Aula</label>
                 <input
                   type="text"
@@ -391,6 +407,13 @@ export function AddActionModal({ isOpen, onClose, defaultMode = 'menu' }) {
                   <option value="estudio">Estudio libre</option>
                 </select>
               </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Recordatorio</label>
+              <select value={eventoReminder} onChange={(e) => setEventoReminder(e.target.value)} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs">
+                <option value="none">Sin recordatorio</option><option value="15">15 minutos antes</option><option value="60">1 hora antes</option><option value="1440">1 día antes</option>
+              </select>
             </div>
 
             <div className="grid grid-cols-2 gap-3">

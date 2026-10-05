@@ -99,21 +99,24 @@ export function NotificationProvider({ children }) {
         });
       });
 
-      // 2. Check Overdue or Today's Due Tasks
-      const todayStr = now.toISOString().split('T')[0];
+      // 2. Configurable reminders for tasks and one-off events.
+      const checkReminder = (item, date, time, kind) => {
+        const minutes = Number(item.recordatorioMinutos);
+        if (!date || !time || !Number.isFinite(minutes)) return;
+        const due = new Date(`${date}T${time}`);
+        const diff = Math.round((due - now) / 60000);
+        const eventId = `${kind}-${item.id}-${date}-${time}-${minutes}`;
+        if (diff >= 0 && diff <= minutes && !notifiedEventsRef.current.has(eventId)) {
+          notifiedEventsRef.current.add(eventId);
+          sendNotification(`${kind === 'task' ? 'Tarea' : 'Evento'} próximo: ${item.texto || item.titulo}`, { body: `Empieza o vence en ${diff} min.`, tag: eventId });
+        }
+      };
       const tasks = await db.tareas.where('estado').notEqual('hecha').toArray();
       tasks.forEach(t => {
-        if (t.fechaLimite) {
-          const taskEventId = `task-${t.id}-${t.fechaLimite}-${now.toDateString()}`;
-          if (t.fechaLimite === todayStr && !notifiedEventsRef.current.has(taskEventId)) {
-            notifiedEventsRef.current.add(taskEventId);
-            sendNotification(`Tarea para hoy: ${t.texto}`, {
-              body: `Prioridad ${t.prioridad.toUpperCase()}. ¡No olvides completarla a tiempo!`,
-              tag: taskEventId
-            });
-          }
-        }
+        checkReminder(t, t.fechaLimite, t.horaLimite || '09:00', 'task');
       });
+      const events = await db.eventos.toArray();
+      events.forEach(event => checkReminder(event, event.fecha, event.horaInicio, 'event'));
     };
 
     checkScheduleAndTasks();

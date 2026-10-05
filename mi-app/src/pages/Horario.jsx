@@ -10,7 +10,9 @@ import {
   BookOpen,
   Coffee,
   CheckCircle2,
-  Trash2
+  Trash2,
+  ChevronLeft,
+  ChevronRight as ChevronRightIcon
 } from 'lucide-react';
 import { db } from '../db/db';
 import { AddActionModal } from '../components/AddActionModal';
@@ -20,6 +22,7 @@ export function Horario() {
   const [selectedDayIndex, setSelectedDayIndex] = useState(5); // Default to Saturday (matching mockup 4 de octubre)
   const [showFullSchedule, setShowFullSchedule] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
 
   const materias = useLiveQuery(() => db.materias.toArray(), []);
   const eventos = useLiveQuery(() => db.eventos.toArray(), []);
@@ -69,6 +72,12 @@ export function Horario() {
   const allDayEvents = [...dayClasses, ...manualEvents].sort((a, b) =>
     (a.horaInicio || '00:00').localeCompare(b.horaInicio || '00:00')
   );
+  const monthLabel = calendarMonth.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+  const monthStart = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1);
+  const leadingDays = (monthStart.getDay() + 6) % 7;
+  const daysInMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 0).getDate();
+  const calendarCells = Array.from({ length: leadingDays + daysInMonth }, (_, index) => index < leadingDays ? null : index - leadingDays + 1);
+  const eventDates = new Set((eventos || []).map(event => event.fecha));
 
   const deleteManualEvent = async (id) => {
     if (window.confirm('¿Eliminar este evento?')) {
@@ -92,6 +101,15 @@ export function Horario() {
           <span>Añadir evento</span>
         </button>
       </div>
+
+      {viewTab === 'mes' && (
+        <section className="jami-card p-4 sm:p-5 animate-fade-in">
+          <div className="flex items-center justify-between mb-4"><button onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-[#19342d]"><ChevronLeft className="w-4 h-4" /></button><h2 className="capitalize text-sm font-extrabold text-slate-800 dark:text-slate-100">{monthLabel}</h2><button onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-[#19342d]"><ChevronRightIcon className="w-4 h-4" /></button></div>
+          <div className="grid grid-cols-7 text-center text-[10px] font-bold text-slate-400 mb-2">{['L','M','X','J','V','S','D'].map(day => <span key={day}>{day}</span>)}</div>
+          <div className="grid grid-cols-7 gap-1">{calendarCells.map((day, index) => { const date = day ? `${calendarMonth.getFullYear()}-${String(calendarMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` : ''; const isToday = date === new Date().toISOString().split('T')[0]; return <div key={`${day}-${index}`} className={`min-h-11 sm:min-h-14 rounded-xl p-1 text-center text-xs font-bold ${day ? 'bg-slate-50 dark:bg-[#152d26] text-slate-700 dark:text-slate-200' : ''} ${isToday ? 'ring-2 ring-[#1b7a4e] text-[#1b7a4e]' : ''}`}><span>{day}</span>{eventDates.has(date) && <span className="mx-auto mt-1 block w-1.5 h-1.5 rounded-full bg-[#1b7a4e]" />}</div>; })}</div>
+          <p className="mt-4 text-[11px] text-slate-500 dark:text-slate-400"><span className="inline-block w-2 h-2 rounded-full bg-[#1b7a4e] mr-1.5" />Días con eventos programados</p>
+        </section>
+      )}
 
       {/* 2. SWITCHER PILLS (Semana / Mes) */}
       <div className="flex items-center p-1 rounded-full bg-[#ebf2ee] dark:bg-[#142722] text-xs font-bold max-w-xs mx-auto">

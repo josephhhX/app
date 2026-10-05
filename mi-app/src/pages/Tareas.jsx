@@ -47,6 +47,7 @@ export function Tareas() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [draggedTaskId, setDraggedTaskId] = useState(null);
 
   // Exam Form State
   const [isAddExamOpen, setIsAddExamOpen] = useState(false);
@@ -87,7 +88,7 @@ export function Tareas() {
   };
 
   // Filter tasks
-  const allTasks = tareas || [];
+  const allTasks = [...(tareas || [])].sort((a, b) => (a.orden ?? a.id) - (b.orden ?? b.id));
   const filteredTasks = allTasks.filter(t => {
     // Status filter (for list view)
     if (viewMode === 'lista' && filterStatus !== 'todas') {
@@ -117,6 +118,12 @@ export function Tareas() {
 
   const setTaskStatus = async (id, estado) => {
     await db.tareas.update(id, { estado });
+  };
+
+  const dropTask = async (estado, orden = Date.now()) => {
+    if (!draggedTaskId) return;
+    await db.tareas.update(draggedTaskId, { estado, orden });
+    setDraggedTaskId(null);
   };
 
   const deleteTask = async (id) => {
@@ -287,6 +294,7 @@ export function Tareas() {
               <p className="text-xs text-slate-400">
                 Toca el botón + para añadir tu primera tarea.
               </p>
+              <button onClick={() => setIsAddOpen(true)} className="mt-3 px-4 py-2 rounded-xl bg-[#184a42] text-white text-xs font-bold">Crear primera tarea</button>
             </div>
           ) : (
             filteredTasks.map(t => {
@@ -379,11 +387,11 @@ export function Tareas() {
               </span>
             </div>
 
-            <div className="space-y-2.5 min-h-[140px]">
-              {pendientes.map(t => {
+            <div className="space-y-2.5 min-h-[140px] rounded-2xl" onDragOver={(e) => e.preventDefault()} onDrop={() => dropTask('pendiente')}>
+              {pendientes.map((t, index) => {
                 const materia = (materias || []).find(m => m.id === t.materiaId);
                 return (
-                  <div key={t.id} className="jami-card p-3.5 space-y-2 relative group">
+                  <div key={t.id} draggable onDragStart={() => setDraggedTaskId(t.id)} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.stopPropagation(); dropTask('pendiente', (t.orden ?? index) - 0.5); }} className="jami-card p-3.5 space-y-2 relative group cursor-grab active:cursor-grabbing">
                     <div className="font-extrabold text-xs text-slate-800 dark:text-slate-100">
                       {t.texto}
                     </div>
@@ -423,11 +431,11 @@ export function Tareas() {
               </span>
             </div>
 
-            <div className="space-y-2.5 min-h-[140px]">
-              {enProceso.map(t => {
+            <div className="space-y-2.5 min-h-[140px] rounded-2xl" onDragOver={(e) => e.preventDefault()} onDrop={() => dropTask('en progreso')}>
+              {enProceso.map((t, index) => {
                 const materia = (materias || []).find(m => m.id === t.materiaId);
                 return (
-                  <div key={t.id} className="jami-card p-3.5 space-y-2">
+                  <div key={t.id} draggable onDragStart={() => setDraggedTaskId(t.id)} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.stopPropagation(); dropTask('en progreso', (t.orden ?? index) - 0.5); }} className="jami-card p-3.5 space-y-2 cursor-grab active:cursor-grabbing">
                     <div className="font-extrabold text-xs text-slate-800 dark:text-slate-100">
                       {t.texto}
                     </div>
@@ -476,11 +484,11 @@ export function Tareas() {
               </span>
             </div>
 
-            <div className="space-y-2.5 min-h-[140px]">
-              {terminadas.map(t => {
+            <div className="space-y-2.5 min-h-[140px] rounded-2xl" onDragOver={(e) => e.preventDefault()} onDrop={() => dropTask('hecha')}>
+              {terminadas.map((t, index) => {
                 const materia = (materias || []).find(m => m.id === t.materiaId);
                 return (
-                  <div key={t.id} className="jami-card p-3.5 space-y-2 opacity-80">
+                  <div key={t.id} draggable onDragStart={() => setDraggedTaskId(t.id)} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.stopPropagation(); dropTask('hecha', (t.orden ?? index) - 0.5); }} className="jami-card p-3.5 space-y-2 opacity-80 cursor-grab active:cursor-grabbing">
                     <div className="font-extrabold text-xs line-through text-slate-400">
                       {t.texto}
                     </div>

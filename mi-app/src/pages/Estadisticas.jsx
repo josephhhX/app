@@ -91,7 +91,7 @@ export function Estadisticas() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2.5">
-            <BarChart2 className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
+            <BarChart2 className="w-7 h-7 text-[#1b7a4e] dark:text-[#6ee7b7]" />
             <span>Estadísticas & Calificaciones</span>
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -110,15 +110,15 @@ export function Estadisticas() {
 
       {/* Overview Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-gradient-to-tr from-indigo-600 to-indigo-700 rounded-3xl p-6 text-white shadow-lg shadow-indigo-500/10">
-          <div className="text-xs font-semibold text-indigo-200 uppercase tracking-wider flex items-center gap-1.5">
+        <div className="bg-gradient-to-tr from-[#184a42] to-[#1b7a4e] rounded-3xl p-6 text-white shadow-lg shadow-[#184a42]/20">
+          <div className="text-xs font-semibold text-emerald-100 uppercase tracking-wider flex items-center gap-1.5">
             <Award className="w-4 h-4 text-amber-300" />
             <span>Promedio General</span>
           </div>
           <div className="mt-2 text-4xl font-black">
-            {getOverallGPA()} <span className="text-lg text-indigo-200 font-normal">/ 20</span>
+            {getOverallGPA()} <span className="text-lg text-emerald-100 font-normal">/ 20</span>
           </div>
-          <div className="mt-1 text-xs text-indigo-100">
+          <div className="mt-1 text-xs text-emerald-100">
             Basado en {calificaciones ? calificaciones.length : 0} evaluaciones registradas
           </div>
         </div>
@@ -153,7 +153,7 @@ export function Estadisticas() {
       {/* Grades Breakdown per Subject */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-6">
         <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-          <BookOpen className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+          <BookOpen className="w-5 h-5 text-[#1b7a4e] dark:text-[#6ee7b7]" />
           <span>Calificaciones por Materia</span>
         </h2>
 
@@ -183,7 +183,7 @@ export function Estadisticas() {
                       </span>
                       <button
                         onClick={() => openAddModal(m.id)}
-                        className="px-3 py-1 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 transition"
+                        className="px-3 py-1 bg-[#184a42] text-white rounded-lg text-xs font-semibold hover:bg-[#133c35] transition"
                       >
                         + Nota
                       </button>
@@ -199,7 +199,7 @@ export function Estadisticas() {
                             <div className="text-[10px] text-slate-400">{c.fecha} • Peso: {c.porcentaje}%</div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="font-bold text-sm text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded-md">
+                            <span className="font-bold text-sm text-[#1b7a4e] dark:text-[#6ee7b7] bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md">
                               {c.nota}
                             </span>
                             <button onClick={() => deleteCalificacion(c.id)} className="text-slate-400 hover:text-red-500 p-0.5">
@@ -223,7 +223,7 @@ export function Estadisticas() {
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl w-full max-w-md">
             <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Award className="w-5 h-5 text-indigo-600" />
+                <Award className="w-5 h-5 text-[#1b7a4e]" />
                 <span>Registrar Calificación</span>
               </h2>
               <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1">
@@ -301,7 +301,7 @@ export function Estadisticas() {
 
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-xs font-semibold text-slate-600">Cancelar</button>
-                <button type="submit" className="px-5 py-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-md">Guardar Nota</button>
+                <button type="submit" className="px-5 py-2 text-xs font-semibold bg-[#184a42] hover:bg-[#133c35] text-white rounded-xl shadow-md">Guardar Nota</button>
               </div>
             </form>
           </div>

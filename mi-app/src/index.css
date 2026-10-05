@@ -1,4 +1,15 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light;
+  --accent: #184a42;
+  --accent-hover: #133c35;
+  --accent-soft: #eaf4f1;
+  background: #f8faf8;
+}
+
+html.dark { color-scheme: dark; background: #0e1816; }
 
 @layer base {
   body {
@@ -23,18 +34,34 @@
 }
 
 .dark .jami-card {
-  background-color: #14221f;
-  border-color: #1d332e;
+  background-color: #10231e !important;
+  border-color: #285448 !important;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
 }
 
+/* El verde es la acción principal en ambos temas; el oscuro solo cambia el lienzo. */
+.dark .jami-btn-primary,
+.dark .bg-\[\#184a42\], .bg-\[\#184a42\] { background-color: var(--accent) !important; }
+.dark .hover\:bg-\[\#133c35\]:hover, .hover\:bg-\[\#133c35\]:hover { background-color: var(--accent-hover) !important; }
+
+.dark .bg-white { background-color: #10231e; }
+.dark .bg-slate-50 { background-color: #152d26; }
+
+/* Compatibilidad con pantallas antiguas: todo el índigo hereda el acento elegido. */
+.bg-indigo-600, .bg-indigo-700 { background-color: var(--accent) !important; }
+.hover\:bg-indigo-700:hover { background-color: var(--accent-hover) !important; }
+.text-indigo-600, .dark .dark\:text-indigo-400 { color: var(--accent) !important; }
+.border-indigo-500 { border-color: var(--accent) !important; }
+.bg-indigo-50 { background-color: var(--accent-soft) !important; }
+.focus\:ring-indigo-500:focus { --tw-ring-color: var(--accent) !important; }
+
 .jami-btn-primary {
-  background-color: #184a42;
+  background-color: var(--accent);
   color: #ffffff;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .jami-btn-primary:hover {
-  background-color: #133c35;
+  background-color: var(--accent-hover);
 }
 .jami-btn-primary:active {
   transform: scale(0.98);

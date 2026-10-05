@@ -2,63 +2,59 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { db } from '../db/db';
 
 const ThemeContext = createContext();
+const ACCENTS = {
+  bosque: { primary: '#184a42', hover: '#133c35', soft: '#eaf4f1' },
+  esmeralda: { primary: '#1b7a4e', hover: '#145f3c', soft: '#ebf8f2' },
+  teal: { primary: '#0f766e', hover: '#0b5e58', soft: '#e7f6f4' },
+};
 
 export function ThemeProvider({ children }) {
-  const [theme, setThemeState] = useState('auto');
+  const [theme, setThemeState] = useState('light');
+  const [accent, setAccentState] = useState('bosque');
 
   useEffect(() => {
-    // Load initial theme from DB
-    db.configuracion.get('theme').then((item) => {
-      if (item && item.value) {
-        setThemeState(item.value);
+    Promise.all([db.configuracion.get('theme'), db.configuracion.get('accent'), db.configuracion.get('themeModeVersion')]).then(async ([themeItem, accentItem, versionItem]) => {
+      const isNewThemeModel = versionItem?.value === 2;
+      const savedTheme = isNewThemeModel && themeItem?.value === 'dark' ? 'dark' : 'light';
+      const savedAccent = ACCENTS[accentItem?.value] ? accentItem.value : 'bosque';
+      setThemeState(savedTheme);
+      setAccentState(savedAccent);
+      if (!isNewThemeModel || themeItem?.value !== savedTheme) {
+        await db.configuracion.bulkPut([{ key: 'theme', value: savedTheme }, { key: 'themeModeVersion', value: 2 }]);
       }
-    }).catch(err => console.error(err));
+    }).catch(console.error);
   }, []);
 
   useEffect(() => {
-    const root = document.documentElement;
-    const applyTheme = (mode) => {
-      if (mode === 'dark') {
-        root.classList.add('dark');
-      } else if (mode === 'light') {
-        root.classList.remove('dark');
-      } else {
-        // Auto - match system media query
-        if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-          root.classList.add('dark');
-        } else {
-          root.classList.remove('dark');
-        }
-      }
-    };
-
-    applyTheme(theme);
-
-    // Listen for system changes if mode is auto
-    if (theme === 'auto') {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      const handleChange = (e) => {
-        if (e.matches) {
-          root.classList.add('dark');
-        } else {
-          root.classList.remove('dark');
-        }
-      };
-      mediaQuery.addEventListener('change', handleChange);
-      return () => mediaQuery.removeEventListener('change', handleChange);
-    }
+    const isDark = theme === 'dark';
+    document.documentElement.classList.toggle('dark', isDark);
+    document.body.classList.toggle('dark', isDark);
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
   }, [theme]);
 
-  const setTheme = async (newTheme) => {
-    setThemeState(newTheme);
-    await db.configuracion.put({ key: 'theme', value: newTheme });
+  useEffect(() => {
+    const colors = ACCENTS[accent] || ACCENTS.bosque;
+    const root = document.documentElement;
+    root.dataset.accent = accent;
+    root.style.setProperty('--accent', colors.primary);
+    root.style.setProperty('--accent-hover', colors.hover);
+    root.style.setProperty('--accent-soft', colors.soft);
+  }, [accent]);
+
+  const setTheme = async (nextTheme) => {
+    const safeTheme = nextTheme === 'dark' ? 'dark' : 'light';
+    setThemeState(safeTheme);
+    await db.configuracion.put({ key: 'theme', value: safeTheme });
   };
 
-  return (
-    <ThemeContext.Provider value={{ theme, setTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  const setAccent = async (nextAccent) => {
+    if (!ACCENTS[nextAccent]) return;
+    setAccentState(nextAccent);
+    await db.configuracion.put({ key: 'accent', value: nextAccent });
+  };
+
+  return <ThemeContext.Provider value={{ theme, setTheme, accent, setAccent }}>{children}</ThemeContext.Provider>;
 }
 
 export const useTheme = () => useContext(ThemeContext);

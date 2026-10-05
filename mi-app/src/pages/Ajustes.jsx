@@ -3,7 +3,6 @@ import {
   Settings,
   Moon,
   Sun,
-  Laptop,
   Bell,
   Download,
   Upload,
@@ -18,7 +17,7 @@ import { useNotification } from '../context/NotificationContext';
 import { db } from '../db/db';
 
 export function Ajustes() {
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, accent, setAccent } = useTheme();
   const { permission, requestPermission, offsetMinutes, updateOffsetMinutes } = useNotification();
 
   const [message, setMessage] = useState('');
@@ -171,12 +170,12 @@ export function Ajustes() {
           <span>Apariencia y Tema</span>
         </h2>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <button
             onClick={() => setTheme('light')}
             className={`p-4 rounded-2xl border flex flex-col items-center gap-2 text-xs font-semibold transition ${
               theme === 'light'
-                ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-500 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                ? 'bg-[#eaf4f1] dark:bg-[#18372f] border-[#184a42] text-[#184a42] dark:text-[#6ee7b7] shadow-sm'
                 : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50'
             }`}
           >
@@ -188,25 +187,20 @@ export function Ajustes() {
             onClick={() => setTheme('dark')}
             className={`p-4 rounded-2xl border flex flex-col items-center gap-2 text-xs font-semibold transition ${
               theme === 'dark'
-                ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-500 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                ? 'bg-[#eaf4f1] dark:bg-[#18372f] border-[#184a42] text-[#184a42] dark:text-[#6ee7b7] shadow-sm'
                 : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50'
             }`}
           >
-            <Moon className="w-6 h-6 text-indigo-400" />
+            <Moon className="w-6 h-6 text-[#184a42] dark:text-[#6ee7b7]" />
             <span>Modo Oscuro</span>
           </button>
+        </div>
 
-          <button
-            onClick={() => setTheme('auto')}
-            className={`p-4 rounded-2xl border flex flex-col items-center gap-2 text-xs font-semibold transition ${
-              theme === 'auto'
-                ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-500 text-indigo-600 dark:text-indigo-400 shadow-sm'
-                : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50'
-            }`}
-          >
-            <Laptop className="w-6 h-6 text-emerald-500" />
-            <span>Automático</span>
-          </button>
+        <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+          <p className="text-xs font-bold text-slate-500 mb-2">Tono de acento</p>
+          <div className="flex gap-2">
+            {[['bosque','#184a42','Bosque'],['esmeralda','#1b7a4e','Esmeralda'],['teal','#0f766e','Teal']].map(([value,color,label]) => <button key={value} onClick={() => setAccent(value)} className={`flex-1 rounded-xl border p-2 text-[11px] font-bold ${accent === value ? 'border-slate-800 dark:border-white' : 'border-slate-200 dark:border-slate-700'}`}><span className="mx-auto mb-1 block w-5 h-5 rounded-full" style={{backgroundColor: color}} />{label}</button>)}
+          </div>
         </div>
       </div>
 

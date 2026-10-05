@@ -31,6 +31,7 @@ export function Concentracion() {
   } = useTimer();
 
   const materias = useLiveQuery(() => db.materias.toArray(), []);
+  const sesiones = useLiveQuery(() => db.sesionesConcentracion.orderBy('fecha').reverse().limit(5).toArray(), []);
   const [selectedMateriaId, setSelectedMateriaId] = useState('');
   const [objetivo, setObjetivo] = useState('');
   const [showSubjectPicker, setShowSubjectPicker] = useState(false);
@@ -64,6 +65,15 @@ export function Concentracion() {
         >
           <Settings className="w-4 h-4" />
         </button>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        {[{label:'Lectura', mode:'pomodoro', goal:'Leer y tomar apuntes'},{label:'Repaso', mode:'52/17', goal:'Repasar el tema'},{label:'Libre', mode:'libre', goal:'Estudio libre'}].map(template => (
+          <button key={template.label} onClick={() => { setMode(template.mode); setObjetivo(template.goal); }} className="jami-card p-3 text-center hover:border-[#184a42]/40 transition">
+            <span className="block text-xs font-extrabold text-slate-700 dark:text-slate-100">{template.label}</span>
+            <span className="block text-[10px] text-slate-400 mt-0.5">{template.mode === 'pomodoro' ? '25 min' : template.mode === '52/17' ? '52 min' : 'Sin límite'}</span>
+          </button>
+        ))}
       </div>
 
       {/* 2. MODE SELECTOR PILLS (Mockup 4) */}
@@ -209,6 +219,11 @@ export function Concentracion() {
         <span>🌱</span>
         <span>Pequeños esfuerzos, grandes resultados</span>
       </div>
+
+      <section className="jami-card p-4 space-y-3">
+        <div className="flex items-center justify-between"><h2 className="text-sm font-extrabold text-slate-800 dark:text-slate-100">Actividad reciente</h2><span className="text-[10px] text-slate-400">Últimas sesiones</span></div>
+        {!sesiones?.length ? <div className="rounded-2xl bg-slate-50 dark:bg-[#152d26] p-4 text-center"><p className="text-xs font-bold text-slate-600 dark:text-slate-300">Aún no hay sesiones completadas</p><p className="mt-1 text-[11px] text-slate-400">Inicia una plantilla para registrar tu primer bloque.</p></div> : sesiones.map(session => <div key={session.id} className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-2 text-xs"><span className="font-semibold capitalize text-slate-700 dark:text-slate-200">{session.tipo}</span><span className="text-slate-400">{session.duracion} min · {new Date(session.fecha).toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</span></div>)}
+      </section>
 
       {/* SUBJECT PICKER MODAL */}
       {showSubjectPicker && (

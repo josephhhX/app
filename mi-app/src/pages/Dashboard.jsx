@@ -18,16 +18,20 @@ import {
   BarChart2,
   GraduationCap,
   FileText
+  , Play, Pause, RotateCcw
 } from 'lucide-react';
 import { db } from '../db/db';
 import { JamiLogo } from '../components/JamiLogo';
 import { AddActionModal } from '../components/AddActionModal';
 import { GlobalSearchModal } from '../components/GlobalSearchModal';
+import { useTimer } from '../context/TimerContext';
 
 export function Dashboard() {
   const navigate = useNavigate();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [showQuickModules, setShowQuickModules] = useState(true);
+  const { mode, timeLeft, isRunning, isBreak, startTimer, pauseTimer, resetTimer } = useTimer();
 
   const materias = useLiveQuery(() => db.materias.toArray(), []);
   const tareas = useLiveQuery(() => db.tareas.toArray(), []);
@@ -46,8 +50,15 @@ export function Dashboard() {
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 30000);
+    db.configuracion.get('showQuickModules').then(item => setShowQuickModules(item?.value !== false));
     return () => clearInterval(timer);
   }, []);
+
+  const toggleQuickModules = async () => {
+    const next = !showQuickModules;
+    setShowQuickModules(next);
+    await db.configuracion.put({ key: 'showQuickModules', value: next });
+  };
 
   // Format date: "sábado, 4 de octubre"
   const formattedDate = now.toLocaleDateString('es-ES', {
@@ -79,6 +90,7 @@ export function Dashboard() {
   const totalFocusMinutes = (sesiones || []).reduce((acc, s) => acc + (Number(s.duracion) || 0), 0);
   const focusHours = Math.floor(totalFocusMinutes / 60);
   const focusRemainingMins = totalFocusMinutes % 60;
+  const compactTime = `${String(Math.floor(timeLeft / 60)).padStart(2, '0')}:${String(timeLeft % 60).padStart(2, '0')}`;
 
   // Upcoming Events list (combining manual eventos and today's classes)
   const currentDayName = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][now.getDay()];
@@ -215,6 +227,15 @@ export function Dashboard() {
         </div>
       </div>
 
+      <section className="rounded-[1.45rem] bg-[#184a42] dark:bg-[#1b6b5d] p-5 sm:p-6 text-white shadow-lg shadow-[#184a42]/20 overflow-hidden relative">
+        <div className="absolute -right-8 -top-10 w-40 h-40 rounded-full bg-white/8" />
+        <div className="relative flex items-center justify-between gap-4">
+          <div><p className="text-xs font-bold text-white/70 uppercase tracking-wider">Modo concentración · {mode}</p><h2 className="mt-1 text-3xl sm:text-4xl font-black tracking-tight">{compactTime}</h2><p className="mt-1 text-xs text-white/75">{isBreak ? 'Descanso en curso' : isRunning ? 'Enfoque en curso' : 'Listo para empezar'}</p></div>
+          <div className="flex items-center gap-2"><button onClick={isRunning ? pauseTimer : startTimer} className="w-12 h-12 rounded-full bg-white text-[#184a42] flex items-center justify-center hover:scale-105 transition" aria-label={isRunning ? 'Pausar sesión' : 'Iniciar sesión'}>{isRunning ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-0.5" />}</button><button onClick={resetTimer} className="w-10 h-10 rounded-full border border-white/30 flex items-center justify-center hover:bg-white/10" aria-label="Reiniciar sesión"><RotateCcw className="w-4 h-4" /></button></div>
+        </div>
+        <button onClick={() => navigate('/sesiones')} className="relative mt-4 text-xs font-bold text-white/90 hover:text-white underline underline-offset-4">Abrir sesión completa</button>
+      </section>
+
       {/* QUICK ACCESS MODULES (Materias, Exámenes, Calificaciones, Documentos, Notas) */}
       <div className="space-y-2">
         <div className="flex items-center justify-between px-1">
@@ -222,14 +243,14 @@ export function Dashboard() {
             Módulos rápidos
           </span>
           <button
-            onClick={() => navigate('/mas')}
+            onClick={toggleQuickModules}
             className="text-[11px] font-bold text-[#184a42] dark:text-[#6ee7b7] hover:underline"
           >
-            Ver más &gt;
+            {showQuickModules ? 'Ocultar' : 'Mostrar'}
           </button>
         </div>
 
-        <div className="grid grid-cols-5 gap-2 sm:gap-3">
+        {showQuickModules && <div className="grid grid-cols-5 gap-2 sm:gap-3">
           <button
             onClick={() => navigate('/materias')}
             className="p-2.5 sm:p-3 rounded-2xl bg-white dark:bg-[#14221f] border border-slate-200/80 dark:border-slate-800/80 flex flex-col items-center justify-center gap-1.5 hover:border-[#184a42]/40 hover:bg-[#ebf8f2]/40 dark:hover:bg-[#182b26] transition group shadow-2xs"
@@ -294,7 +315,7 @@ export function Dashboard() {
               Notas
             </span>
           </button>
-        </div>
+        </div>}
       </div>
 
       {/* 5. PRÓXIMOS EVENTOS (Mockup 1) */}
